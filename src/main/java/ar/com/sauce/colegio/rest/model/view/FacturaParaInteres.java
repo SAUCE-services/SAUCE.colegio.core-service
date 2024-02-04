@@ -36,31 +36,25 @@ public class FacturaParaInteres implements Serializable {
 
 	@Id
 	@Column(name = "alumno_id")
-	@Type(type = "org.hibernate.type.LongType")
 	private Long alumnoId;
 
 	@Id
 	@Column(name = "factura_id")
-	@Type(type = "org.hibernate.type.LongType")
 	private Long facturaId;
 
 	@Column(name = "periodo_id")
-	@Type(type = "org.hibernate.type.IntegerType")
 	private Integer periodoId;
 	
 	@Column(name = "importe_adeudado")
-	@Type(type = "org.hibernate.type.BigDecimalType")
 	private BigDecimal importeAdeudado;
 
 	@Column(name = "importe_pagado")
-	@Type(type = "org.hibernate.type.BigDecimalType")
 	private BigDecimal importePagado;
 
 	@Column(name = "vencimiento")
-	@Type(type = "org.hibernate.type.TimestampType")
 	private Timestamp vencimiento;
 
 	@Column(name = "pago")
-	@Type(type = "org.hibernate.type.TimestampType")
 	private Timestamp pago;
+
 }

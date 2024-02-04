@@ -35,23 +35,18 @@ public class Anotador extends Auditable implements Serializable {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "anotador_id")
-	@Type(type = "org.hibernate.type.LongType")
 	private Long anotadorId;
 	
 	@Column(name = "alumno_id")
-	@Type(type = "org.hibernate.type.LongType")
 	private Long alumnoId;
 	
 	@Column(name = "fecha")
-	@Type(type = "org.hibernate.type.TimestampType")
 	private Timestamp fecha;
 	
 	@Column(name = "anotacion")
-	@Type(type = "org.hibernate.type.TextType")
 	private String anotacion;
 	
 	@Column(name = "transaccion_id")
-	@Type(type = "org.hibernate.type.LongType")
 	private Long transaccionId;
 
 	/**

@@ -34,6 +34,6 @@ public class Transaccion extends Auditable implements Serializable {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "transaccion_id")
-	@Type(type = "org.hibernate.type.LongType")
 	private Long transaccionId;
+
 }
