@@ -11,8 +11,8 @@ app:
   open-in-view: true
   port: 8081
   mail:
-    username: uvspes.envios@gmail.com
-    password: yCDQC3XbTN8v
+    username: uid
+    password: pwd
 
 server:
   port: ${app.port}
