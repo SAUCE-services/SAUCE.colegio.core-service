@@ -1,0 +1,32 @@
+stateDiagram-v2
+    [*] --> Nueva
+    
+    state Nueva {
+        [*] --> Pendiente
+        Pendiente --> Procesando: Iniciar procesamiento
+        Procesando --> Pendiente: Error en proceso
+    }
+    
+    state Completada {
+        Nueva --> Completada: Transacción exitosa
+        [*] --> Completada: Transacción directa
+    }
+    
+    state Cancelada {
+        [*] --> Cancelada: Usuario cancela
+        [*] --> Cancelada: Timeout
+    }
+    
+    Nueva --> Cancelada: cancel()
+    Completada --> [*]
+    Cancelada --> [*]
+    
+    note right of Nueva
+        Auditable: createdAt, createdBy
+        updatedAt, updatedBy
+    end note
+    
+    note right of Completada
+        Registrada en MySQL
+        con auditoría completa
+    end note

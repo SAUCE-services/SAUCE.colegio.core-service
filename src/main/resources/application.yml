@@ -1,13 +1,10 @@
 app:
-  server: 10.147.20.25:3306
+  server: 192.168.201.132:3306
   database: escuela
   user: root
   password: root
   add-properties: true
   logging: debug
-  livereload:
-    enabled: true
-    port: 35729
   open-in-view: true
   port: 8081
   mail:

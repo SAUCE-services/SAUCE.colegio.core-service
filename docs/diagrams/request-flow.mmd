@@ -1,0 +1,43 @@
+sequenceDiagram
+    participant Client as Cliente
+    participant Controller as Controllers
+    participant Service as Services
+    participant Repository as Repositories
+    participant DB as MySQL DB
+
+    Note over Client,DB: Flujo de Petición HTTP
+    
+    Client->>Controller: HTTP Request (GET/POST/PUT/DELETE)
+    
+    alt Transaccion Flow
+        Controller->>Controller: TransaccionController
+        Controller->>Service: TransaccionService.getAll()
+        Service->>Repository: ITransaccionRepository.findAll()
+        Repository->>DB: SELECT * FROM transaccion
+        DB-->>Repository: ResultSet
+        Repository-->>Service: List<Transaccion>
+        Service-->>Controller: List<Transaccion>
+        Controller-->>Client: JSON Response (HATEOAS)
+        
+    else Anotador Flow
+        Controller->>Controller: AnotadorController
+        Controller->>Service: AnotadorService
+        Service->>Repository: IAnotadorRepository
+        Repository->>DB: CRUD Operations
+        DB-->>Repository: Result
+        Repository-->>Service: Anotador
+        Service-->>Controller: Anotador (HATEOAS)
+        Controller-->>Client: JSON Response
+        
+    else FacturaParaInteres Flow
+        Controller->>Controller: FacturaParaInteresController
+        Controller->>Service: FacturaParaInteresService
+        Service->>Repository: IFacturaParaInteresRepository
+        Repository->>DB: SELECT with JOIN
+        DB-->>Repository: ResultSet
+        Repository-->>Service: List<FacturaParaInteres>
+        Service-->>Controller: View Model
+        Controller-->>Client: JSON Response
+    end
+    
+    Note over Client,DB: Auditoría: timestamps y usuario registrados por Auditable
