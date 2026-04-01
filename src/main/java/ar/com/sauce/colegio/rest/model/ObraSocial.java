@@ -5,14 +5,13 @@ import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "provincias")
-public class Provincia {
+@Table(name = "o_sociales")
+public class ObraSocial {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_provincia")
-    private Long idProvincia;
+    @Column(name = "id_osocial")
+    private Long idObraSociañ;
 
-    @Column(name = "descricion")
+    @Column(name = "descripcion")
     private String descripcion;
-
 }
