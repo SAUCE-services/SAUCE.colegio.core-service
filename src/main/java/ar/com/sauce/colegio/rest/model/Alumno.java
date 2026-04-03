@@ -9,7 +9,7 @@ import java.time.LocalDate;
 @Data
 @Entity
 @Table(name = "alumnos")
-public class Alumno {
+public class Alumno extends Auditable{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
