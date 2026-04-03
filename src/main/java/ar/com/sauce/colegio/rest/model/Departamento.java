@@ -3,10 +3,12 @@ package ar.com.sauce.colegio.rest.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
 @Entity
 @Table(name = "departamentos")
-public class Departamento {
+public class Departamento extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_departamento")
@@ -18,7 +20,7 @@ public class Departamento {
     @Column(name = "descripcion")
     private String descripcion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "id_provincia")
     private Provincia provincia;
 

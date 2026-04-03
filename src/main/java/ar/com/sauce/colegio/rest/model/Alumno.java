@@ -4,12 +4,13 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 
+import java.io.Serializable;
 import java.time.LocalDate;
 
 @Data
 @Entity
 @Table(name = "alumnos")
-public class Alumno extends Auditable{
+public class Alumno extends Auditable implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

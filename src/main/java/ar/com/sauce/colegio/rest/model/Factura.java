@@ -1,15 +1,17 @@
 package ar.com.sauce.colegio.rest.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
 @Entity
 @Table(name = "factura")
-public class Factura {
+public class Factura extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_facturas")
@@ -39,9 +41,6 @@ public class Factura {
     @Column(name = "fecha_cancelacion")
     private LocalDate fechaCancelacion;
 
-    @Column(name = "id_factura_interes")
-    private Long idFacturaInteres;
-
     @Column(name = "pf_codigo")
     private String pfCodigo;
 
@@ -62,4 +61,9 @@ public class Factura {
     @ManyToOne // Muchos facturas pertenecen a un mismo Periodo
     @JoinColumn(name = "id_periodo")
     private Periodo periodo;
+
+    @JsonIgnoreProperties({"facturaInteres"})
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_factura_interes")
+    private Factura facturaInteres;
 }

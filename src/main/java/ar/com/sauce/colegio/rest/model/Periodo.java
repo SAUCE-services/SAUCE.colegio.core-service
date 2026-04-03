@@ -3,12 +3,13 @@ package ar.com.sauce.colegio.rest.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 
 @Data
 @Entity
 @Table(name = "periodos")
-public class Periodo {
+public class Periodo extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_periodo")

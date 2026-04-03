@@ -3,12 +3,13 @@ package ar.com.sauce.colegio.rest.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Data
 @Entity
 @Table(name = "conceptos")
-public class Concepto {
+public class Concepto extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_concepto")
