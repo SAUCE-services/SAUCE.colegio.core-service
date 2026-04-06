@@ -1,28 +1,28 @@
 package ar.com.sauce.colegio.rest.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "cursos")
-@AttributeOverride(name = "updated",
-column = @Column(name = "created", insertable = false, updatable = false))
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Curso extends Auditable implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cursos")
-    private Long idCursos;
+    private Long idCurso;
 
-    @Column(name = "descripcion")
     private String descripcion;
 
     // --- CLAVES FORÁNEAS COMO RELACIONES ---
-
     @ManyToOne
     @JoinColumn(name = "id_turno")
     private Turno turno;
@@ -38,4 +38,5 @@ public class Curso extends Auditable implements Serializable {
     @ManyToOne // Un ciclo puede tener muchos cursos
     @JoinColumn(name = "ciclo_id")
     private Ciclo ciclo;
+
 }

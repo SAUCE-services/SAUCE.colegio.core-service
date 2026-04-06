@@ -1,40 +1,36 @@
 package ar.com.sauce.colegio.rest.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.io.Serializable;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "padres")
-@AttributeOverride(name = "updated",
-        column = @Column(name = "created", insertable = false, updatable = false))
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Padre extends Auditable implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_padre")
     private Long idPadre;
 
-    @Column(name = "apellido")
     private String apellido;
 
-    @Column(name = "nombre")
     private String nombre;
 
-    @Column(name = "nro_documento")
     private Long nroDocumento;
 
-    @Column(name = "dir_calle")
     private String dirCalle;
 
     @Column(name = "dir_num")
     private String dirNumero;
 
-    @Column(name = "dir_piso")
     private String dirPiso;
 
-    @Column(name = "dir_depto")
     private String dirDepto;
 
     @Column(name = "tel_fijo")
@@ -43,10 +39,8 @@ public class Padre extends Auditable implements Serializable {
     @Column(name = "tel_cel")
     private String telefonoCelular;
 
-    @Column(name = "presente")
     private Integer presente;
 
-    @Column(name = "uuid")
     private String uuid;
 
     @ManyToOne
@@ -88,4 +82,5 @@ public class Padre extends Auditable implements Serializable {
     @ManyToOne
     @JoinColumn(name = "id_parentesco")
     private Parentesco parentesco;
+
 }

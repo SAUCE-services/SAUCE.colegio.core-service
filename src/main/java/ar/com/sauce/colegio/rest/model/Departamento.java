@@ -1,16 +1,19 @@
 package ar.com.sauce.colegio.rest.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.io.Serializable;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "departamentos")
-@AttributeOverride(name = "updated",
-        column = @Column(name = "created", insertable = false, updatable = false))
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Departamento extends Auditable implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_departamento")
@@ -19,7 +22,6 @@ public class Departamento extends Auditable implements Serializable {
     @Column(name = "cod_postal")
     private String codigoPostal;
 
-    @Column(name = "descripcion")
     private String descripcion;
 
     @ManyToOne

@@ -1,28 +1,27 @@
 package ar.com.sauce.colegio.rest.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.io.Serializable;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "cartas_medicas")
-@AttributeOverride(name = "updated",
-        column = @Column(name = "created", insertable = false, updatable = false))
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CartaMedica extends Auditable implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_carta_medica")
     private Long idCartaMedica;
 
-    @Column(name = "descripcion_enfermedad")
     private String descripcionEnfermedad;
 
-    @Column(name = "medicamentos_toma")
     private String medicamentosToma;
 
-    @Column(name = "medicamentos_alergia")
     private Long medicamentosAlergia;
 
     @Column(name = "tel_emergencia")
@@ -31,7 +30,6 @@ public class CartaMedica extends Auditable implements Serializable {
     @Column(name = "tel_emergencia2")
     private String telefonoEmergencia2;
 
-    @Column(name = "padece_enfermedad")
     private String padeceEnfermedad;
 
     @OneToOne
@@ -45,4 +43,5 @@ public class CartaMedica extends Auditable implements Serializable {
     @ManyToOne
     @JoinColumn(name = "id_grupo_san")
     private GrupoSanguineo grupoSanguineo;
+
 }

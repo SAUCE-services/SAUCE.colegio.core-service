@@ -1,40 +1,36 @@
 package ar.com.sauce.colegio.rest.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.io.Serializable;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "maestros")
-@AttributeOverride(name = "updated",
-        column = @Column(name = "created", insertable = false, updatable = false))
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Maestro extends Auditable implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_maestro")
     private Long idMaestro;
 
-    @Column(name = "apellido")
     private String apellido;
 
-    @Column(name = "nombre")
     private String nombre;
 
-    @Column(name = "nro_documento")
     private String nroDocumento;
 
-    @Column(name = "dir_calle")
     private String dirCalle;
 
     @Column(name = "dir_num")
     private String dirNumero;
 
-    @Column(name = "dir_piso")
     private String dirPiso;
 
-    @Column(name = "dir_depto")
     private String dirDepto;
 
     @Column(name = "tel_fijo")
