@@ -11,6 +11,8 @@ import java.time.LocalDate;
 @Data
 @Entity
 @Table(name = "madres")
+@AttributeOverride(name = "updated",
+        column = @Column(name = "created", insertable = false, updatable = false))
 public class Madre extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

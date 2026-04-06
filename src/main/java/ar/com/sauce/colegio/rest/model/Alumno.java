@@ -29,8 +29,6 @@ public class Alumno extends Auditable implements Serializable {
     @Column(name = "fecha_nacimiento")
     private LocalDate fechaNacimiento;
 
-    private Long idTransporte;
-
     @Column(name = "fecha_ingreso")
     private LocalDate fechaIngreso;
 

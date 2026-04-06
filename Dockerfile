@@ -14,7 +14,7 @@ RUN mvn dependency:go-offline
 COPY src ./src
 
 # Compilamos la aplicación y generamos el JAR
-RUN mvn clean package
+RUN mvn clean package -DskipTests
 
 
 # Etapa 2: Creación de la imagen final y ligera

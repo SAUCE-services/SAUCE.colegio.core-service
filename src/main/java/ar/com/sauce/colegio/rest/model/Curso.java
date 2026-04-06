@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table(name = "cursos")
+@AttributeOverride(name = "updated",
+column = @Column(name = "created", insertable = false, updatable = false))
 public class Curso extends Auditable implements Serializable {
 
     @Id

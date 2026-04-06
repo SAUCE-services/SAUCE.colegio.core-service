@@ -9,6 +9,8 @@ import java.time.LocalDate;
 @Data
 @Entity
 @Table(name = "transportes")
+@AttributeOverride(name = "updated",
+        column = @Column(name = "created", insertable = false, updatable = false))
 public class Transporte extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

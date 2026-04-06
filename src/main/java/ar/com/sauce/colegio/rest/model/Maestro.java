@@ -8,6 +8,8 @@ import java.io.Serializable;
 @Data
 @Entity
 @Table(name = "maestros")
+@AttributeOverride(name = "updated",
+        column = @Column(name = "created", insertable = false, updatable = false))
 public class Maestro extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

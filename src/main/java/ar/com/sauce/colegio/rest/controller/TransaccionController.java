@@ -3,6 +3,7 @@
  */
 package ar.com.sauce.colegio.rest.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import ar.com.sauce.colegio.rest.service.TransaccionService;
  */
 @RestController
 @RequestMapping("/transaccion")
+@Slf4j
 public class TransaccionController {
 	@Autowired
 	private TransaccionService service;

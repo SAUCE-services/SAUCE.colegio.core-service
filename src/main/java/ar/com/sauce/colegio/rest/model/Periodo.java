@@ -9,6 +9,8 @@ import java.time.LocalDate;
 @Data
 @Entity
 @Table(name = "periodos")
+@AttributeOverride(name = "updated",
+        column = @Column(name = "created", insertable = false, updatable = false))
 public class Periodo extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,5 +28,5 @@ public class Periodo extends Auditable implements Serializable {
 
     @ManyToOne
     @JoinColumn(name = "ciclo_id")
-    private Ciclo siclo;
+    private Ciclo ciclo;
 }

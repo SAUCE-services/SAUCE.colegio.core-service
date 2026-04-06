@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 @Data
 @Entity
 @Table(name = "conf_establecimiento")
+@AttributeOverride(name = "updated",
+        column = @Column(name = "created", insertable = false, updatable = false))
 public class Establecimiento extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
