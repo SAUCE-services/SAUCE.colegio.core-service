@@ -41,7 +41,7 @@ public class Transporte extends Auditable implements Serializable {
 
     @Column(name = "tel_cel")
     private String telefonoCelular;
-    
+
     @ManyToOne
     @JoinColumn(name = "id_tipo_doc")
     private TipoDocumento tipoDocumento;
