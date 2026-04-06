@@ -7,12 +7,12 @@ import java.io.Serializable;
 
 @Data
 @Entity
-@Table(name = "maestros")
-public class Maestro extends Auditable implements Serializable {
+@Table(name = "padres")
+public class Padre extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_maestro")
-    private Long idMaestro;
+    @Column(name = "id_padre")
+    private Long idPadre;
 
     @Column(name = "apellido")
     private String apellido;
@@ -21,7 +21,7 @@ public class Maestro extends Auditable implements Serializable {
     private String nombre;
 
     @Column(name = "nro_documento")
-    private String nroDocumento;
+    private Long nroDocumento;
 
     @Column(name = "dir_calle")
     private String dirCalle;
@@ -41,7 +41,20 @@ public class Maestro extends Auditable implements Serializable {
     @Column(name = "tel_cel")
     private String telefonoCelular;
 
-    // RELACIONES
+    @Column(name = "presente")
+    private Integer presente;
+
+    @Column(name = "uuid")
+    private String uuid;
+
+    @ManyToOne
+    @JoinColumn(name = "id_establecimiento")
+    private Establecimiento establecimiento;
+
+    @ManyToOne
+    @JoinColumn(name = "id_departamento")
+    private Departamento departamento;
+
     @ManyToOne
     @JoinColumn(name = "id_localidad")
     private Localidad localidad;
@@ -51,11 +64,26 @@ public class Maestro extends Auditable implements Serializable {
     private Actividad actividad;
 
     @ManyToOne
-    @JoinColumn(name = "id_establecimiento")
-    private Establecimiento establecimiento;
+    @JoinColumn(name = "id_nivel_estudio")
+    private NivelEstudio nivelEstudio;
+
+    @ManyToOne
+    @JoinColumn(name = "id_alumno")
+    private Alumno alumno;
+
+    @ManyToOne
+    @JoinColumn(name = "id_tipo_nacionalidad")
+    private TipoNacionalidad tipoNacionalidad;
 
     @ManyToOne
     @JoinColumn(name = "id_tipo_doc")
     private TipoDocumento tipoDocumento;
 
+    @ManyToOne
+    @JoinColumn(name = "id_transporte")
+    private Transporte transporte;
+
+    @ManyToOne
+    @JoinColumn(name = "id_parentesco")
+    private Parentesco parentesco;
 }

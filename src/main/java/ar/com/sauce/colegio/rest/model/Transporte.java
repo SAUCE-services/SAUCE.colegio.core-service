@@ -4,15 +4,16 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 
 @Data
 @Entity
-@Table(name = "maestros")
-public class Maestro extends Auditable implements Serializable {
+@Table(name = "transportes")
+public class Transporte extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_maestro")
-    private Long idMaestro;
+    @Column(name = "id_transporte")
+    private Long idTransporte;
 
     @Column(name = "apellido")
     private String apellido;
@@ -21,7 +22,7 @@ public class Maestro extends Auditable implements Serializable {
     private String nombre;
 
     @Column(name = "nro_documento")
-    private String nroDocumento;
+    private Long nroDocumento;
 
     @Column(name = "dir_calle")
     private String dirCalle;
@@ -40,22 +41,12 @@ public class Maestro extends Auditable implements Serializable {
 
     @Column(name = "tel_cel")
     private String telefonoCelular;
-
-    // RELACIONES
-    @ManyToOne
-    @JoinColumn(name = "id_localidad")
-    private Localidad localidad;
-
-    @ManyToOne
-    @JoinColumn(name = "id_actividad")
-    private Actividad actividad;
-
-    @ManyToOne
-    @JoinColumn(name = "id_establecimiento")
-    private Establecimiento establecimiento;
-
+    
     @ManyToOne
     @JoinColumn(name = "id_tipo_doc")
     private TipoDocumento tipoDocumento;
 
+    @ManyToOne
+    @JoinColumn(name = "id_localidad")
+    private Localidad localidad;
 }
