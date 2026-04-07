@@ -7,10 +7,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.sql.Timestamp;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 import lombok.*;
 
@@ -24,6 +21,7 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+
 public class Anotador extends Auditable implements Serializable {
 	/**
 	* 
@@ -33,6 +31,7 @@ public class Anotador extends Auditable implements Serializable {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "anotador_id")
 	private Long anotadorId;
 	
 	private Long alumnoId;
@@ -42,5 +41,12 @@ public class Anotador extends Auditable implements Serializable {
 	private String anotacion;
 	
 	private Long transaccionId;
+
+	// AGREGA ESTE CONSTRUCTOR MANUAL
+	public Anotador(Long alumnoId, String anotacion, Long transaccionId) {
+		this.alumnoId = alumnoId;
+		this.anotacion = anotacion;
+		this.transaccionId = transaccionId;
+	}
 
 }

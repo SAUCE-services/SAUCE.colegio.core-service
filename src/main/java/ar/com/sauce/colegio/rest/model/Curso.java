@@ -13,12 +13,13 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Curso extends Auditable implements Serializable {
+
+public class Curso extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cursos")
-    private Long idCurso;
+    private Long cursoId;
 
     private String descripcion;
 

@@ -1,5 +1,6 @@
 package ar.com.sauce.colegio.rest.controller;
 
+import ar.com.sauce.colegio.rest.dto.CursoDto;
 import ar.com.sauce.colegio.rest.model.Curso;
 import ar.com.sauce.colegio.rest.service.CursoService;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ public class CursoController {
     private final CursoService service;
 
     @GetMapping("/")
-    public ResponseEntity<List<Curso>> findAll() {
-        return new ResponseEntity<>(service.findAll(), HttpStatus.OK);
+    public ResponseEntity<List<CursoDto>> findAll() {
+        return new ResponseEntity<>(service.findAllDto(), HttpStatus.OK);
     }
 }

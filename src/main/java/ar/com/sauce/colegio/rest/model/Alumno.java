@@ -14,11 +14,16 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@AttributeOverride(
+        name = "updated",
+        column = @Column(name = "updated") // Asegura que busque el nombre físico 'updated'
+)
 public class Alumno extends Auditable implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long idAlumno;
+    @Column(name = "id_alumno")
+    private Long alumnoId;
 
     private String apellido;
 

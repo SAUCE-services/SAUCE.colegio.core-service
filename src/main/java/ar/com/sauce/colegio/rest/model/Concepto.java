@@ -13,11 +13,13 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Concepto extends Auditable implements Serializable {
+
+public class Concepto extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long idConcepto;
+    @Column(name = "id_concepto")
+    private Long ConceptoId;
 
     private String descripcion;
 

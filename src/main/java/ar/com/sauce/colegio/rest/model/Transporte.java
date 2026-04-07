@@ -12,11 +12,13 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Transporte extends Auditable implements Serializable {
+
+public class Transporte extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long idTransporte;
+    @Column(name = "id_transporte")
+    private Long transporteId;
 
     private String apellido;
 

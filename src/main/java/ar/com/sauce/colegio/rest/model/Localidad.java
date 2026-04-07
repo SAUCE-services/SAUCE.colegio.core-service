@@ -12,11 +12,13 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Localidad extends Auditable implements Serializable {
+
+public class Localidad extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long idLocalidad;
+    @Column(name = "id_localidad")
+    private Long localidadId;
 
     private String descripcion;
 

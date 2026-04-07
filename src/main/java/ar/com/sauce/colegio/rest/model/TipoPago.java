@@ -12,10 +12,12 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TipoPago extends Auditable implements Serializable {
+
+public class TipoPago extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "tipo_id")
     private Long tipoId;
 
     private String nombre;

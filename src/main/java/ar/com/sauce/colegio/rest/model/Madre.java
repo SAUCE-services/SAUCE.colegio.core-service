@@ -1,12 +1,9 @@
 package ar.com.sauce.colegio.rest.model;
 
-import com.sun.jdi.connect.Transport;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.awt.*;
 import java.io.Serializable;
-import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -15,11 +12,13 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Madre extends Auditable implements Serializable {
+
+public class Madre extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long idMadre;
+    @Column(name = "id_madre")
+    private Long madreId;
 
     private String apellido;
 

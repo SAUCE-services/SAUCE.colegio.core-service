@@ -11,12 +11,13 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TipoDocumento extends Auditable implements Serializable {
+
+public class TipoDocumento extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_tipo_doc")
-    private Long idTipoDocumento;
+    private Long tipoDocumentoId;
 
     private String descripcion;
 

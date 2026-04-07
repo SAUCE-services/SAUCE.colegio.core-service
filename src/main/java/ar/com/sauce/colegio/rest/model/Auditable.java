@@ -31,6 +31,6 @@ public class Auditable {
 	private LocalDateTime created;
 	
 	@LastModifiedDate
-	@Column(name = "updated")
+	@Column(name = "updated", insertable = false, updatable = true)
 	private LocalDateTime updated;
 }

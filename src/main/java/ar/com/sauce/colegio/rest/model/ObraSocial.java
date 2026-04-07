@@ -12,12 +12,13 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ObraSocial extends Auditable implements Serializable {
+
+public class ObraSocial extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_osocial")
-    private Long idObraSocial;
+    private Long obraSocialId;
 
     private String descripcion;
 

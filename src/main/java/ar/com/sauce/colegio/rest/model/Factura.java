@@ -14,12 +14,13 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Factura extends Auditable implements Serializable {
+
+public class Factura extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_facturas")
-    private Long idFactura;
+    private Long facturaId;
 
     private Long nroFactura;
 

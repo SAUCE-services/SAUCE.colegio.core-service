@@ -11,11 +11,13 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TipoNacionalidad extends Auditable implements Serializable {
+
+public class TipoNacionalidad extends AuditableSimple implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long idTipoNacionalidad;
+    @Column(name = "id_tipo_nacionalidad")
+    private Long tipoNacionalidadId;
 
     private String descripcion;
 

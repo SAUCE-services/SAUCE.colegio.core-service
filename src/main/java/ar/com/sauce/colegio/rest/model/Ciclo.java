@@ -12,10 +12,15 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@AttributeOverride(
+        name = "updated",
+        column = @Column(name = "updated") // Asegura que busque el nombre físico 'updated'
+)
 public class Ciclo extends Auditable implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ciclo_id")
     private Long cicloId;
 
     private String nombre;
