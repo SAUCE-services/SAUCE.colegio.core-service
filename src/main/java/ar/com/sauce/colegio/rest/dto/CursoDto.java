@@ -13,4 +13,5 @@ public class CursoDto {
     private String nombreEstablecimiento;
     private String nombreMaestro; // "Morales, Anabela"
     private String nombreTurno;   // "Mañana"
+    private String nombreCiclo; // Agrega este campo
 }

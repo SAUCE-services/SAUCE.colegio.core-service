@@ -43,6 +43,10 @@ public class CursoService {
             dto.setNombreTurno(curso.getTurno().getDescripcion());
         }
 
+        if (curso.getCiclo() != null) {
+            dto.setNombreCiclo(curso.getCiclo().getNombre()); //
+        }
+
         return dto;
     }
 }
