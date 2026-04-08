@@ -10,5 +10,5 @@ import java.util.Optional;
 @Repository
 public interface IAlumnoRepository extends JpaRepository<Alumno, Long> {
     // Filtra alumnos por el campo de texto 'curso'
-    List<Alumno> findAllByCurso(String cursoNombre);
+    List<Alumno> findAllByCursoIgnoreCase(String cursoNombre);
 }

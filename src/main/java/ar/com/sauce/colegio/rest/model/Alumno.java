@@ -29,7 +29,7 @@ public class Alumno extends Auditable implements Serializable {
 
     private String nombre;
 
-    private Long nroDocumento;
+    private String nroDocumento;
 
     private LocalDate fechaNacimiento;
 

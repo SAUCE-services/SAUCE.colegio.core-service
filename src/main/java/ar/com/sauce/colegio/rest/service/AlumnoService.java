@@ -20,7 +20,7 @@ public class AlumnoService {
 
     public List<AlumnoDto> findByCursoDto(String cursoNombre) {
         // Buscamos los alumnos y los transformamos al DTO
-        return alumnoRepository.findAllByCurso(cursoNombre).stream()
+        return alumnoRepository.findAllByCursoIgnoreCase(cursoNombre).stream()
                 .map(alumno -> new AlumnoDto(
                         alumno.getAlumnoId(),
                         alumno.getApellido() + ", " + alumno.getNombre() // Formato exacto de la imagen
@@ -28,29 +28,30 @@ public class AlumnoService {
                 .collect(Collectors.toList());
     }
 
+    // sauce/colegio/rest/service/AlumnoService.java
     public CursoDetalleResponseDto findCursoConAlumnos(String cursoNombre) {
-        // Buscamos el curso para llenar la cabecera (Ciclo, Turno, Maestro, Establecimiento)
-        Curso curso = cursoRepository.findByDescripcion(cursoNombre)
-                .orElse(null);
+        String nombreBusqueda = cursoNombre.trim();
 
-        // Buscamos la lista de alumnos para la grilla
-        List<AlumnoDto> alumnosDto = alumnoRepository.findAllByCurso(cursoNombre).stream()
+        // 1. ✅ Usamos el nuevo método optimizado (1 sola consulta para toda la cabecera)
+        Curso curso = cursoRepository.findByDescripcionConDetalles(nombreBusqueda).orElse(null);
+
+        // 2. Traemos la lista de alumnos
+        List<AlumnoDto> alumnosDto = alumnoRepository.findAllByCursoIgnoreCase(nombreBusqueda).stream()
                 .map(alumno -> new AlumnoDto(
                         alumno.getAlumnoId(),
                         alumno.getApellido() + ", " + alumno.getNombre()
                 ))
                 .collect(Collectors.toList());
 
-        // Unimos todo en el DTO de respuesta
         CursoDetalleResponseDto response = new CursoDetalleResponseDto();
         if (curso != null) {
+            // Al usar JOIN FETCH, estos getters ya tienen la información y no van a la DB
             response.setNombreMaestro(curso.getMaestro().getApellido() + ", " + curso.getMaestro().getNombre());
             response.setNombreTurno(curso.getTurno().getDescripcion());
             response.setNombreEstablecimiento(curso.getEstablecimiento().getNombre());
             response.setNombreCiclo(curso.getCiclo().getNombre());
         }
         response.setAlumnos(alumnosDto);
-
         return response;
     }
 }

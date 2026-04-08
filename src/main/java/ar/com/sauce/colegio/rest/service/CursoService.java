@@ -4,6 +4,8 @@ import ar.com.sauce.colegio.rest.dto.CursoDto;
 import ar.com.sauce.colegio.rest.model.Curso;
 import ar.com.sauce.colegio.rest.repository.ICursoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,8 +21,8 @@ public class CursoService {
         this.repository = repository;
     }
 
-    public List<CursoDto> findAllDto() {
-        return repository.findAll().stream().map(this::convertToDto).collect(Collectors.toList());
+    public Page<CursoDto> findAllPaginated(Pageable pageable) {
+        return repository.findAll(pageable).map(this::convertToDto);
     }
 
     private CursoDto convertToDto(Curso curso) {
