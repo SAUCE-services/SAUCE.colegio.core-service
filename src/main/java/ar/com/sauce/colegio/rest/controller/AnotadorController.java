@@ -5,6 +5,7 @@ package ar.com.sauce.colegio.rest.controller;
 
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,7 @@ import ar.com.sauce.colegio.rest.service.AnotadorService;
  */
 @RestController
 @RequestMapping("/anotador")
+@Slf4j
 public class AnotadorController {
 	@Autowired
 	private AnotadorService service;
