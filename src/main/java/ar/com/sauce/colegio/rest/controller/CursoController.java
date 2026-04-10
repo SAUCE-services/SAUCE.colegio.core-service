@@ -33,4 +33,23 @@ public class CursoController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("ciclo.nombre").descending());
         return new ResponseEntity<>(service.findAllPaginated(pageable), HttpStatus.OK);
     }
+
+    @GetMapping("/ciclo/{anio}")
+    public ResponseEntity<Page<CursoDto>> findByAnio(
+            @PathVariable String anio,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        // Definimos la paginación manualmente para asegurar el orden por descripción
+        Pageable pageable = PageRequest.of(page, size, Sort.by("descripcion").ascending());
+
+        return new ResponseEntity<>(service.findByAnioCiclo(anio, pageable), HttpStatus.OK);
+    }
+
+    // CursoController.java
+    @GetMapping("/ciclos-disponibles")
+    public ResponseEntity<List<String>> getCiclosUnicos() {
+        // Supongamos que tu service tiene un método que hace un "SELECT DISTINCT nombre FROM Ciclo"
+        return new ResponseEntity<>(service.listarNombresDeCiclos(), HttpStatus.OK);
+    }
 }

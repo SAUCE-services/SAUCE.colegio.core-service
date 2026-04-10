@@ -1,6 +1,8 @@
 package ar.com.sauce.colegio.rest.repository;
 
 import ar.com.sauce.colegio.rest.model.Curso;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query; // ✅ Import necesario
 import org.springframework.data.repository.query.Param; // ✅ Import necesario
@@ -24,4 +26,6 @@ public interface ICursoRepository extends JpaRepository<Curso, Long> {
             "JOIN FETCH c.ciclo " +
             "WHERE c.descripcion = :descripcion")
     Optional<Curso> findByDescripcionConDetalles(@Param("descripcion") String descripcion);
-} // ✅ Asegúrate de que esta llave cierre TODO el archivo
+
+    Page<Curso> findAllByCiclo_NombreContaining(String anio, Pageable pageable);
+}

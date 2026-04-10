@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -50,5 +51,20 @@ public class CursoService {
         }
 
         return dto;
+    }
+
+    public Page<CursoDto> findByAnioCiclo(String anio, Pageable pageable) {
+        // Usamos el repositorio con paginación y mapeamos cada resultado al DTO
+        return repository.findAllByCiclo_NombreContaining(anio, pageable)
+                .map(this::convertToDto);
+    }
+
+    public List<String> listarNombresDeCiclos() {
+        return repository.findAll().stream()
+                .map(curso -> curso.getCiclo() != null ? curso.getCiclo().getNombre() : null)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted(Comparator.reverseOrder()) // 👈 acá
+                .collect(Collectors.toList());
     }
 }
