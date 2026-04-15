@@ -1,11 +1,11 @@
 package ar.com.sauce.colegio.rest.service;
 
+import ar.com.sauce.colegio.rest.dto.AlumnoCompletoDto;
 import ar.com.sauce.colegio.rest.dto.AlumnoDto;
 import ar.com.sauce.colegio.rest.dto.CursoDetalleResponseDto;
-import ar.com.sauce.colegio.rest.model.Alumno;
-import ar.com.sauce.colegio.rest.model.Curso;
-import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
-import ar.com.sauce.colegio.rest.repository.ICursoRepository;
+import ar.com.sauce.colegio.rest.model.*;
+import ar.com.sauce.colegio.rest.repository.*;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -17,6 +17,12 @@ public class AlumnoService {
     private IAlumnoRepository alumnoRepository;
     @Autowired
     private ICursoRepository cursoRepository;
+    @Autowired
+    private IPadreRepository padreRepository;
+    @Autowired
+    private IMadreRepository madreRepository;
+    @Autowired
+    private ICartaMedicaRepository cartaMedicaRepository;
 
     public List<AlumnoDto> findByCursoDto(String cursoNombre) {
         // Buscamos los alumnos y los transformamos al DTO
@@ -53,5 +59,32 @@ public class AlumnoService {
         }
         response.setAlumnos(alumnosDto);
         return response;
+    }
+
+    @Transactional
+    public void guardarAlumnoCompleto(AlumnoCompletoDto dto) {
+        // 1. Guardar/Actualizar Alumno
+        Alumno alumno = (dto.getAlumnoId() != null) ?
+                alumnoRepository.findById(dto.getAlumnoId()).orElse(new Alumno()) : new Alumno();
+        // mapear campos...
+        alumno = alumnoRepository.save(alumno);
+
+        // 2. Guardar Padre
+        Padre padre = new Padre();
+        padre.setAlumno(alumno);
+        // mapear campos del DTO...
+        padreRepository.save(padre);
+
+        // 3. Guardar Madre
+        Madre madre = new Madre();
+        madre.setAlumno(alumno);
+        // mapear campos...
+        madreRepository.save(madre);
+
+        // 4. Guardar Carta Médica
+        CartaMedica carta = new CartaMedica();
+        carta.setAlumno(alumno);
+        // mapear campos...
+        cartaMedicaRepository.save(carta);
     }
 }

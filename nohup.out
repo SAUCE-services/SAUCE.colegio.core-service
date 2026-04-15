@@ -1,0 +1,32 @@
+2026-04-15 08:27:00,548 [    928]   WARN - #c.i.m.l.t.AIAssistantTelemetryExporterKt - No Langfuse auth string found.
+2026-04-15 08:27:00,763 [   1143]   WARN - #c.i.o.v.n.p.m.c.VFSContentStorageOverMMappedFile - Content map[/home/alma/.cache/JetBrains/IntelliJIdea2025.3/caches/content.dat.hashToId] is empty (or dropped) while content storage is not: re-building map from the storage
+2026-04-15 08:27:00,765 [   1145]   WARN - #c.i.o.v.n.p.FSRecords - Records storage [/home/alma/.cache/JetBrains/IntelliJIdea2025.3/caches/records.dat] was in use by process [OwnershipInfo{owner pid: 3417, acquired at: 1776078914420}] which is not exist now (wasn't closed properly/crashed?) -> re-acquiring forcibly
+2026-04-15 08:27:00,784 [   1164]   WARN - c.i.o.u.r.overrides - Conflicting registry key definition for key completion.cloud.enableCompletionInCommitMessage: it was defined by plugin org.jetbrains.completion.full.line but redefined by plugin org.jetbrains.completion.full.line. Consider adding overrides="true" for one of the plugins, see the documentation for com.intellij.openapi.util.registry.RegistryKeyBean.overrides for more details.
+2026-04-15 08:27:00,797 [   1177]   WARN - #c.i.o.v.n.p.PersistentFSLoader - [VFS load problem]: VFS wasn't safely shut down: records.wasClosedProperly is false
+2026-04-15 08:27:01,294 [   1674]   WARN - #c.i.s.c.i.StationSocketConnectionLoop - Discovery connection failed with NoSuchFileException (/run/user/1000/jb.station.sock)
+2026-04-15 08:27:01,310 [   1690]   WARN - #c.i.o.e.c.i.EditorColorsManagerImpl - resource not found: colorSchemes/SqlDefault.xml
+2026-04-15 08:27:01,313 [   1693]   WARN - #c.i.o.e.c.i.EditorColorsManagerImpl - resource not found: colorSchemes/sassDefault.xml
+2026-04-15 08:27:01,354 [   1734]   WARN - #c.i.o.e.c.i.EditorColorsManagerImpl - resource not found: colorSchemes/SqlDarcula.xml
+2026-04-15 08:27:02,081 [   2461]   WARN - #c.i.o.v.n.p.PersistentFSLoader - [VFS load problem]: NOT_CLOSED_PROPERLY recovered, no problems remain
+2026-04-15 08:27:03,789 [   4169]   WARN - #c.i.o.w.i.h.MainMenuWithButton - Invisible items count mismatch: expandableMenuItemCount = 0,  menuItemCount = 11, invisibleItems is empty = true. Run update menu actions.
+2026-04-15 08:27:09,661 [  10041]   WARN - #c.i.o.a.i.ActionUpdater - 4421 ms total to grab EDT 5 times to expand ToolWindowHeader$2#expandGroup@ToolwindowTitle (com.intellij.toolWindow.ToolWindowHeader$2). Use `ActionUpdateThread.BGT`.
+2026-04-15 08:27:10,009 [  10389]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-04-15 08:27:10,010 [  10390]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-04-15 08:27:10,010 [  10390]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-04-15 08:27:10,010 [  10390]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-04-15 08:27:10,010 [  10390]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-04-15 08:27:10,011 [  10391]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-04-15 08:27:10,011 [  10391]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-04-15 08:27:10,749 [  11129]   WARN - #c.i.m.l.c.q.QuotaManager2Impl - Quota refill state was updated by another thread, wanted to update to Error(exception=com.intellij.ml.llm.core.quota.ResultDoesNotMatchConditionException: Returned result does not match the condition, previous=null)
+2026-04-15 08:27:10,961 [  11341]   WARN - #c.i.s.c.i.StationSocketConnectionLoop - /mcp-servers connection failed with NoSuchFileException (/run/user/1000/jb.station.sock)
+2026-04-15 08:27:11,001 [  11381]   WARN - #c.i.s.c.i.StationSocketConnectionLoop - RecentProjects connection failed with NoSuchFileException (/run/user/1000/jb.station.sock)
+2026-04-15 08:27:14,741 [  15121]   WARN - #c.i.o.a.i.ActionUpdater - 2335 ms to call on BGT ExecutorRegistryImpl$ExecutorAction#presentation@NewUiRunToolbar (com.intellij.execution.ExecutorRegistryImpl$ExecutorAction(id=Debug)) "Debug"
+2026-04-15 08:27:14,744 [  15124]   WARN - #c.i.o.a.i.ActionUpdater - 2337 ms to call on BGT ExecutorRegistryImpl$ExecutorAction#presentation@NewUiRunToolbar (com.intellij.execution.ExecutorRegistryImpl$ExecutorAction(id=Run)) "Run"
+2026-04-15 08:27:15,204 [  15584]   WARN - #c.i.s.SpellCheckerManager - Couldn't load dictionary vue.dic with loader 'class org.jetbrains.vuejs.spellchecker.VueSpellcheckingDictionaryProvider'
+2026-04-15 08:29:38,441 [ 158821]   WARN - org.apache.velocity.deprecation - configuration key 'resource.loader' has been deprecated in favor of 'resource.loaders'
+2026-04-15 08:29:38,442 [ 158822]   WARN - org.apache.velocity.deprecation - configuration key 'includes.resource.loader.instance' has been deprecated in favor of 'resource.loader.includes.instance'
+2026-04-15 08:30:07,787 [ 188167]   WARN - #c.i.o.a.ExperimentalFeatureImpl - Feature 'ml.llm.ask.ai' is disabled in Release. Set 'percentOfUsers' to 100% to enable in Release.
+2026-04-15 08:37:01,605 [ 601985]   WARN - #c.i.m.l.c.c.u.AIAssistantUIUtil - quota and refill values are returned as null by platform, refill: null, quota: null
+2026-04-15 08:37:01,605 [ 601985]   WARN - #c.i.m.l.c.c.u.AIAssistantUIUtil - getQuotaUiLabelData returning unknown
+2026-04-15 09:46:44,983 [4785363]   WARN - org.apache.velocity.deprecation - configuration key 'resource.loader' has been deprecated in favor of 'resource.loaders'
+2026-04-15 09:46:44,984 [4785364]   WARN - org.apache.velocity.deprecation - configuration key 'includes.resource.loader.class' has been deprecated in favor of 'resource.loader.includes.class'
