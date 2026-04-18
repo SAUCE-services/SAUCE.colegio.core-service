@@ -1,5 +1,6 @@
 package ar.com.sauce.colegio.rest.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import java.time.LocalDate;
 
@@ -10,10 +11,15 @@ public class AlumnoCompletoDto {
     private String apellido;
     private String nombre;
     private String nroDocumento;
+    private String curso; // 👈 AGREGA ESTA LÍNEA
+    private String establecimiento; // 👈 AGREGA ESTA LÍNEA
+    private String uuid; // 👈 AGREGA ESTA LÍNEA
     private Long tipoDocumentoId;
     private Long nacionalidadId;
     private Long transporteId;
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate fechaNacimiento;
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate fechaIngreso;
 
     // Datos del Padre

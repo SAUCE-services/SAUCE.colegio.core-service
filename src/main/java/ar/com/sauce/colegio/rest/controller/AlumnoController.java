@@ -27,7 +27,11 @@ public class AlumnoController {
 
     @PostMapping("/completo")
     public ResponseEntity<String> guardarCompleto(@RequestBody AlumnoCompletoDto dto) {
-        service.guardarAlumnoCompleto(dto);
-        return new ResponseEntity<>("Datos guardados correctamente", HttpStatus.OK);
+        try {
+            service.guardarAlumnoCompleto(dto);
+            return new ResponseEntity<>("Datos guardados correctamente", HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al guardar: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

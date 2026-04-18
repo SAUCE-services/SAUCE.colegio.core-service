@@ -24,7 +24,7 @@ public class CartaMedica extends Auditable implements Serializable {
 
     private String medicamentosToma;
 
-    private Long medicamentosAlergia;
+    private String medicamentosAlergia;
 
     @Column(name = "tel_emergencia")
     private String telefonoEmergencia;
