@@ -86,10 +86,9 @@ public class AlumnoService {
 
     @Transactional
     public void guardarAlumnoCompleto(AlumnoCompletoDto dto) {
-        // 1. PROCESAR ALUMNO
+        // 1. PROCESAR ALUMNO (O crear o recuperar existente)
         Alumno alumno = (dto.getAlumnoId() != null && dto.getAlumnoId() > 0) ?
                 alumnoRepository.findById(dto.getAlumnoId()).orElse(new Alumno()) : new Alumno();
-
         alumno.setApellido(dto.getApellido()); // Evita el error de 'apellido' null
         alumno.setNombre(dto.getNombre());
         alumno.setNroDocumento(dto.getNroDocumento());
