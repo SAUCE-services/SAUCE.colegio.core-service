@@ -5,6 +5,7 @@ import ar.com.sauce.colegio.rest.dto.AlumnoDto;
 import ar.com.sauce.colegio.rest.dto.CursoDetalleResponseDto;
 import ar.com.sauce.colegio.rest.service.AlumnoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,15 @@ public class AlumnoController {
             return new ResponseEntity<>("Datos guardados correctamente", HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>("Error al guardar: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<AlumnoCompletoDto> getAlumnoCompleto(@PathVariable Long id) {
+        try {
+            return new ResponseEntity<>(service.obtenerAlumnoCompleto(id), HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>((HttpHeaders) null, HttpStatus.NOT_FOUND);
         }
     }
 }

@@ -224,4 +224,81 @@ public class AlumnoService {
 
         cartaMedicaRepository.save(carta);
     }
+
+    public AlumnoCompletoDto obtenerAlumnoCompleto(Long alumnoId) {
+        // 1. Buscamos el alumno (base)
+        Alumno alumno = alumnoRepository.findById(alumnoId)
+                .orElseThrow(() -> new RuntimeException("Alumno no encontrado con legajo: " + alumnoId));
+
+        AlumnoCompletoDto dto = new AlumnoCompletoDto();
+
+        // Mapeo Datos Alumno
+        dto.setAlumnoId(alumno.getAlumnoId());
+        dto.setApellido(alumno.getApellido());
+        dto.setNombre(alumno.getNombre());
+        dto.setNroDocumento(alumno.getNroDocumento());
+        dto.setCurso(alumno.getCurso());
+        dto.setFechaNacimiento(alumno.getFechaNacimiento());
+        dto.setFechaIngreso(alumno.getFechaIngreso());
+        if (alumno.getTipoDocumento() != null) dto.setTipoDocumentoId(alumno.getTipoDocumento().getTipoDocumentoId());
+        if (alumno.getTipoNacionalidad() != null) dto.setNacionalidadId(alumno.getTipoNacionalidad().getTipoNacionalidadId());
+        if (alumno.getTransporte() != null) dto.setTransporteId(alumno.getTransporte().getTransporteId());
+
+        // 2. Buscamos y mapeamos al Padre
+        Padre padre = padreRepository.findByAlumnoAlumnoId(alumnoId);
+        if (padre != null) {
+            dto.setApellidoPadre(padre.getApellido());
+            dto.setNombrePadre(padre.getNombre());
+            dto.setNroDocumentoPadre(padre.getNroDocumento());
+            dto.setCallePadre(padre.getDirCalle());
+            dto.setNroPadre(padre.getDirNumero());
+            dto.setPisoPadre(padre.getDirPiso());
+            dto.setDeptoPadre(padre.getDirDepto());
+            dto.setTelFijoPadre(padre.getTelefonoFijo());
+            dto.setTelCelPadre(padre.getTelefonoCelular());
+            dto.setPresentePadre(padre.getPresente() != null && padre.getPresente() == 1);
+            if (padre.getTipoDocumento() != null) dto.setTipoDocumentoPadreId(padre.getTipoDocumento().getTipoDocumentoId());
+            if (padre.getNivelEstudio() != null) dto.setNivelEstudioPadreId(padre.getNivelEstudio().getNivelEstudioId());
+            if (padre.getDepartamento() != null) dto.setDepartamentoPadreId(padre.getDepartamento().getDepartamentoId());
+            if (padre.getLocalidad() != null) dto.setLocalidadPadreId(padre.getLocalidad().getLocalidadId());
+            if (padre.getActividad() != null) dto.setActividadPadreId(padre.getActividad().getActividadId());
+            if (padre.getParentesco() != null) dto.setParentescoPadreId(padre.getParentesco().getParentescoId());
+        }
+
+        // 3. Buscamos y mapeamos a la Madre
+        Madre madre = madreRepository.findByAlumnoAlumnoId(alumnoId);
+        if (madre != null) {
+            dto.setApellidoMadre(madre.getApellido());
+            dto.setNombreMadre(madre.getNombre());
+            dto.setNroDocumentoMadre(madre.getNroDocumento());
+            dto.setCalleMadre(madre.getDirCalle());
+            dto.setNroMadre(madre.getDirNumero());
+            dto.setPisoMadre(madre.getDirPiso());
+            dto.setDeptoMadre(madre.getDirDepto());
+            dto.setTelFijoMadre(madre.getTelefonoFijo());
+            dto.setTelCelMadre(madre.getTelefonoCelular());
+            dto.setPresenteMadre(madre.getPresente() != null && madre.getPresente() == 1);
+            if (madre.getTipoDocumento() != null) dto.setTipoDocumentoMadreId(madre.getTipoDocumento().getTipoDocumentoId());
+            if (madre.getNivelEstudio() != null) dto.setNivelEstudioMadreId(madre.getNivelEstudio().getNivelEstudioId());
+            if (madre.getDepartamento() != null) dto.setDepartamentoMadreId(madre.getDepartamento().getDepartamentoId());
+            if (madre.getLocalidad() != null) dto.setLocalidadMadreId(madre.getLocalidad().getLocalidadId());
+            if (madre.getActividad() != null) dto.setActividadMadreId(madre.getActividad().getActividadId());
+            if (madre.getParentesco() != null) dto.setParentescoMadreId(madre.getParentesco().getParentescoId());
+        }
+
+        // 4. Buscamos y mapeamos la Carta Médica
+        CartaMedica carta = cartaMedicaRepository.findByAlumnoAlumnoId(alumnoId);
+        if (carta != null) {
+            dto.setEnfermedades(carta.getDescripcionEnfermedad());
+            dto.setPadeceEnfermedad("1".equals(carta.getPadeceEnfermedad()));
+            dto.setTomaMedicamentos(carta.getMedicamentosToma());
+            dto.setMedicamentosAlergia(carta.getMedicamentosAlergia());
+            dto.setTelEmergencia1(carta.getTelefonoEmergencia());
+            dto.setTelEmergencia2(carta.getTelefonoEmergencia2());
+            if (carta.getGrupoSanguineo() != null) dto.setGrupoSanguineoId(carta.getGrupoSanguineo().getGrupoSanguineoId());
+            if (carta.getObraSocial() != null) dto.setObraSocialId(carta.getObraSocial().getObraSocialId());
+        }
+
+        return dto;
+    }
 }
