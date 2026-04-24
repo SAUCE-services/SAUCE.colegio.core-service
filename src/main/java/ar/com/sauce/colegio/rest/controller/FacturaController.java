@@ -22,8 +22,6 @@ public class FacturaController {
         return ResponseEntity.ok(facturaService.obtenerHistoriaPorAlumno(alumnoId));
     }
 
-    // ar.com.sauce.colegio.rest.controller.FacturaController
-
     @GetMapping("/detalle/{facturaId}")
     public ResponseEntity<List<LineaDetalleDto>> getDetalle(@PathVariable Long facturaId) {
         return ResponseEntity.ok(facturaService.obtenerDetalleDeFactura(facturaId));
