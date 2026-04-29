@@ -23,22 +23,10 @@ public class PeriodoService {
                 .map(this::convertToDto);
     }
 
-    public Page<PeriodoDto> findByFiltroFechas(LocalDate primerVenc, LocalDate segundoVenc, Pageable pageable) {
-        Page<Periodo> resultados;
-
-        if (primerVenc != null && segundoVenc != null) {
-            // Debes agregar estos métodos con Pageable en tu IPeriodoRepository
-            resultados = repository.findAllByMesAndFechaSegundo(primerVenc, segundoVenc, pageable);
-        } else if (primerVenc != null) {
-            resultados = repository.findAllByMes(primerVenc, pageable);
-        } else if (segundoVenc != null) {
-            resultados = repository.findAllByFechaSegundo(segundoVenc, pageable);
-        } else {
-            // Si no hay filtros, llama al método paged que hicimos antes
-            return repository.findAll(pageable).map(this::convertToDto);
-        }
-
-        return resultados.map(this::convertToDto);
+    public Page<PeriodoDto> buscar(LocalDate primerVenc, LocalDate segundoVenc, String ciclo, Pageable pageable) {
+        // Si todos los filtros son nulos, podrías usar el findAll estándar o dejar que la query maneje los NULLs
+        return repository.buscarConFiltros(primerVenc, segundoVenc, ciclo, pageable)
+                .map(this::convertToDto);
     }
 
     public Periodo save(Periodo periodo) {
