@@ -6,7 +6,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Repository
 public interface IFacturaRepository extends JpaRepository<Factura, Long> {
@@ -23,4 +25,25 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "WHERE af.id_alumno = :alumnoId", nativeQuery = true)
     List<java.util.Map<String, Object>> findByAlumnoIdNative(@Param("alumnoId") Long alumnoId);
+
+    @Query(value = "SELECT " +
+            "IFNULL(e.nombre, 'SIN ESTABLECIMIENTO') as establecimiento, " +
+            "IFNULL(tp.nombre, 'Manual') as medioPago, " +
+            "f.nro_factura as factura, p.descripcion as periodo, a.id_alumno as legajo, " +
+            "CONCAT(a.apellido, ', ', a.nombre) as nombre, f.importe_pagado as pagado " +
+            "FROM factura f " +
+            "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
+            "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
+            "LEFT JOIN cursos c ON a.curso = c.descripcion " +
+            "LEFT JOIN conf_establecimiento e ON c.id_establecimiento = e.id_establecimiento " +
+            "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
+            "LEFT JOIN tipopago tp ON f.tipo_id = tp.tipo_id " +
+            "WHERE DATE(f.fecha_pago) = :fecha " +
+            "ORDER BY " +
+            "  CASE " +
+            "    WHEN e.nombre LIKE 'Jardin%' THEN 1 " + // Primero el Jardín
+            "    WHEN e.nombre LIKE 'Colegio%' THEN 2 " + // Segundo el Colegio
+            "    ELSE 3 " +
+            "  END ASC, tp.nombre DESC", nativeQuery = true)
+    List<Map<String, Object>> findRecaudacionByFecha(@Param("fecha") LocalDate fecha);
 }
