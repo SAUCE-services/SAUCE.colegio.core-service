@@ -12,4 +12,5 @@ public class ReporteRecaudacionDto {
     private LocalDate fechaReporte;
     private List<RecaudacionEstablecimientoDto> establecimientos = new ArrayList<>();
     private BigDecimal granTotal;
+    private int cantidadTotalPagos;
 }

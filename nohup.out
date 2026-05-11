@@ -51,3 +51,26 @@
 2026-04-23 11:43:47,588 [ 601702]   WARN - #c.i.o.a.ExperimentalFeatureImpl - Feature 'ml.llm.ask.ai' is disabled in Release. Set 'percentOfUsers' to 100% to enable in Release.
 2026-04-23 11:43:47,614 [ 601728]   WARN - #c.i.m.l.c.c.u.AIAssistantUIUtil - quota and refill values are returned as null by platform, refill: null, quota: null
 2026-04-23 11:43:47,614 [ 601728]   WARN - #c.i.m.l.c.c.u.AIAssistantUIUtil - getQuotaUiLabelData returning unknown
+2026-05-11 09:37:28,308 [   1927]   WARN - #c.i.m.l.t.AIAssistantTelemetryExporterKt - No Langfuse auth string found.
+2026-05-11 09:37:28,721 [   2340]   WARN - c.i.o.u.r.overrides - Conflicting registry key definition for key completion.cloud.enableCompletionInCommitMessage: it was defined by plugin org.jetbrains.completion.full.line but redefined by plugin org.jetbrains.completion.full.line. Consider adding overrides="true" for one of the plugins, see the documentation for com.intellij.openapi.util.registry.RegistryKeyBean.overrides for more details.
+2026-05-11 09:37:29,307 [   2926]   WARN - #c.i.s.c.i.StationSocketConnectionLoop - Discovery connection failed with NoSuchFileException (/run/user/1000/jb.station.sock)
+2026-05-11 09:37:29,710 [   3329]   WARN - #c.i.o.e.c.i.EditorColorsManagerImpl - resource not found: colorSchemes/SqlDefault.xml
+2026-05-11 09:37:29,717 [   3336]   WARN - #c.i.o.e.c.i.EditorColorsManagerImpl - resource not found: colorSchemes/sassDefault.xml
+2026-05-11 09:37:29,759 [   3378]   WARN - #c.i.o.e.c.i.EditorColorsManagerImpl - resource not found: colorSchemes/SqlDarcula.xml
+2026-05-11 09:37:43,848 [  17467]   WARN - #c.i.o.a.i.ActionUpdater - 3408 ms total to grab EDT 2 times to expand EditorMarkupModelImpl$StatusToolbarGroup#expandGroup@EditorInspectionsToolbar (com.intellij.openapi.editor.impl.EditorMarkupModelImpl$StatusToolbarGroup). Use `ActionUpdateThread.BGT`.
+2026-05-11 09:37:43,937 [  17556]   WARN - #c.i.o.a.i.ActionUpdater - 7220 ms total to grab EDT 5 times to expand ToolWindowHeader$2#expandGroup@ToolwindowTitle (com.intellij.toolWindow.ToolWindowHeader$2). Use `ActionUpdateThread.BGT`.
+2026-05-11 09:37:44,430 [  18049]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-05-11 09:37:44,432 [  18051]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-05-11 09:37:44,432 [  18051]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-05-11 09:37:44,433 [  18052]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-05-11 09:37:44,433 [  18052]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-05-11 09:37:44,434 [  18053]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-05-11 09:37:44,434 [  18053]   WARN - #com.github.weisj.jsvg.parser.NodeMap - unsupported foreignObject
+2026-05-11 09:37:46,255 [  19874]   WARN - #c.i.m.l.c.q.QuotaManager2Impl - Quota refill state was updated by another thread, wanted to update to Error(exception=com.intellij.ml.llm.core.quota.ResultDoesNotMatchConditionException: Returned result does not match the condition, previous=null)
+2026-05-11 09:37:46,700 [  20319]   WARN - #c.i.s.c.i.StationSocketConnectionLoop - /mcp-servers connection failed with NoSuchFileException (/run/user/1000/jb.station.sock)
+2026-05-11 09:37:46,752 [  20371]   WARN - #c.i.s.c.i.StationSocketConnectionLoop - RecentProjects connection failed with NoSuchFileException (/run/user/1000/jb.station.sock)
+2026-05-11 09:37:50,340 [  23959]   WARN - #c.i.s.SpellCheckerManager - Couldn't load dictionary vue.dic with loader 'class org.jetbrains.vuejs.spellchecker.VueSpellcheckingDictionaryProvider'
+2026-05-11 09:37:54,895 [  28514]   WARN - #c.i.o.v.i.h.RemoteFileInfoImpl - Virtual local file not found for /home/alma/.cache/JetBrains/IntelliJIdea2025.3/httpFileSystem/catalog.json
+2026-05-11 09:47:29,214 [ 602833]   WARN - #c.i.o.a.ExperimentalFeatureImpl - Feature 'ml.llm.ask.ai' is disabled in Release. Set 'percentOfUsers' to 100% to enable in Release.
+2026-05-11 09:47:29,244 [ 602863]   WARN - #c.i.m.l.c.c.u.AIAssistantUIUtil - quota and refill values are returned as null by platform, refill: null, quota: null
+2026-05-11 09:47:29,244 [ 602863]   WARN - #c.i.m.l.c.c.u.AIAssistantUIUtil - getQuotaUiLabelData returning unknown
