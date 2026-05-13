@@ -88,4 +88,26 @@ public class FacturaController {
         headers.add("Content-Disposition", "inline; filename=recaudacion_periodo_" + periodo + ".pdf");
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
     }
+
+    @GetMapping("/recaudacion-fechas")
+    public ResponseEntity<ReporteRecaudacionDto> getRecaudacionFechas(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ResponseEntity.ok(facturaService.obtenerRecaudacionPorFechas(desde, hasta));
+    }
+
+    @GetMapping("/recaudacion-fechas-pdf")
+    public ResponseEntity<byte[]> descargarPdfRecaudacionFechas(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+
+        // Aquí llamarías a tu método de generación de PDF pasando el DTO
+        // que ya contiene la 'cantidadTotalPagos'.
+        byte[] pdfContents = facturaService.generarPdfRecaudacionPorFechas(desde, hasta);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.add("Content-Disposition", "inline; filename=recaudacion_fechas.pdf");
+        return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
 }

@@ -119,4 +119,39 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "  medioPago ASC, " +
             "  a.apellido ASC, a.nombre ASC", nativeQuery = true)
     List<Map<String, Object>> findRecaudacionFinalByPeriodo(@Param("periodo") String periodo);
+
+    @Query(value = "SELECT " +
+            "  e.nombre AS establecimiento, " +
+            "  IFNULL(tp.nombre, 'Manual') AS medioPago, " +
+            "  f.nro_factura AS factura, " +
+            "  p.descripcion AS periodo, " +
+            "  a.id_alumno AS legajo, " +
+            "  CONCAT(a.apellido, ', ', a.nombre) AS nombre, " +
+            "  f.fecha_pago AS fecha, " +
+            "  f.importe_pagado AS pagado " +
+            "FROM factura f " +
+            "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
+            "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
+            "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
+            "LEFT JOIN tipopago tp ON f.tipo_id = tp.tipo_id " +
+            "INNER JOIN cursos c ON UPPER(TRIM(a.curso)) = UPPER(TRIM(c.descripcion)) " +
+            "INNER JOIN conf_establecimiento e ON c.id_establecimiento = e.id_establecimiento " +
+            "WHERE f.fecha_pago BETWEEN :desde AND :hasta " +
+            "  AND f.id_estado = 1 " +
+            "  AND f.importe_pagado > 0 " +
+            "ORDER BY " +
+            "  CASE " +
+            "    WHEN e.nombre LIKE 'Jardin%' THEN 1 " +
+            "    WHEN e.nombre LIKE 'Colegio%' THEN 2 " +
+            "  END ASC, " +
+            "  CASE " +
+            "    WHEN IFNULL(tp.nombre, 'Manual') = 'Manual' THEN 1 " +
+            "    WHEN IFNULL(tp.nombre, 'Manual') = 'PagoFácil' THEN 2 " +
+            "    ELSE 3 " +
+            "  END ASC, " +
+            "  f.fecha_pago ASC, a.apellido ASC", nativeQuery = true)
+    List<Map<String, Object>> findRecaudacionPorFechas(
+            @Param("desde") LocalDate desde,
+            @Param("hasta") LocalDate hasta
+    );
 }

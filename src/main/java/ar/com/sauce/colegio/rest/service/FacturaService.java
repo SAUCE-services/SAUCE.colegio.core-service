@@ -4,10 +4,12 @@ import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
+import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.AreaBreak;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Paragraph;
@@ -554,6 +556,149 @@ public class FacturaService {
                 .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(11));
 
         doc.close();
+        return out.toByteArray();
+    }
+
+    public ReporteRecaudacionDto obtenerRecaudacionPorFechas(LocalDate desde, LocalDate hasta) {
+        // 1. Pasamos los LocalDate tal cual vienen
+        List<Map<String, Object>> datos = facturaRepository.findRecaudacionPorFechas(desde, hasta);
+
+        Map<String, Map<String, List<Map<String, Object>>>> agrupado = datos.stream()
+                .collect(Collectors.groupingBy(
+                        m -> m.get("establecimiento").toString(),
+                        LinkedHashMap::new,
+                        Collectors.groupingBy(
+                                m -> m.get("medioPago").toString(),
+                                LinkedHashMap::new,
+                                Collectors.toList()
+                        )
+                ));
+
+        ReporteRecaudacionDto reporte = new ReporteRecaudacionDto();
+        BigDecimal granTotal = BigDecimal.ZERO;
+        int acumuladorPagosGral = 0;
+
+        for (var entryEst : agrupado.entrySet()) {
+            RecaudacionEstablecimientoDto estDto = new RecaudacionEstablecimientoDto();
+            estDto.setNombre(entryEst.getKey());
+            BigDecimal totalEst = BigDecimal.ZERO;
+
+            for (var entryMedio : entryEst.getValue().entrySet()) {
+                RecaudacionMedioDto medioDto = new RecaudacionMedioDto();
+                medioDto.setNombre(entryMedio.getKey());
+
+                List<RecaudacionDetalleDto> items = entryMedio.getValue().stream()
+                        .map(m -> {
+                            // 2. CONVERSIÓN SEGURA DE FECHA
+                            Object fechaObj = m.get("fecha");
+                            LocalDate fechaPago = null;
+
+                            if (fechaObj instanceof java.sql.Date) {
+                                fechaPago = ((java.sql.Date) fechaObj).toLocalDate();
+                            } else if (fechaObj instanceof LocalDate) {
+                                fechaPago = (LocalDate) fechaObj;
+                            }
+
+                            return new RecaudacionDetalleDto(
+                                    ((Number) m.get("factura")).longValue(),
+                                    (String) m.get("periodo"),
+                                    ((Number) m.get("legajo")).longValue(),
+                                    (String) m.get("nombre"),
+                                    fechaPago, // Ahora es un LocalDate real
+                                    new BigDecimal(m.get("pagado").toString())
+                            );
+                        }).collect(Collectors.toList());
+
+                BigDecimal subtotalMedio = items.stream()
+                        .map(RecaudacionDetalleDto::getPagado)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                medioDto.setItems(items);
+                medioDto.setCantidadPagos(items.size());
+                medioDto.setSubtotal(subtotalMedio);
+
+                estDto.getMedios().add(medioDto);
+                totalEst = totalEst.add(subtotalMedio);
+                acumuladorPagosGral += items.size();
+            }
+            estDto.setTotalEstablecimiento(totalEst);
+            reporte.getEstablecimientos().add(estDto);
+            granTotal = granTotal.add(totalEst);
+        }
+
+        reporte.setGranTotal(granTotal);
+        reporte.setCantidadTotalPagos(acumuladorPagosGral);
+        return reporte;
+    }
+
+    public byte[] generarPdfRecaudacionPorFechas(LocalDate desde, LocalDate hasta) {
+        // 1. Obtenemos los datos estructurados usando el método que ya tenemos
+        ReporteRecaudacionDto datos = obtenerRecaudacionPorFechas(desde, hasta);
+
+        // 2. Formateadores
+        DateTimeFormatter fmtFecha = DateTimeFormatter.ofPattern("d/M/yyyy");
+        NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(out);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document document = new Document(pdf, PageSize.A4);
+        document.setMargins(20, 20, 20, 20);
+
+        // CABECERA
+        document.add(new Paragraph("Recaudación por Fechas")
+                .setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(14));
+
+        document.add(new Paragraph("Fechas: " + desde.format(fmtFecha) + " - " + hasta.format(fmtFecha))
+                .setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
+
+        // ITERACIÓN POR ESTABLECIMIENTO
+        for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
+            document.add(new Paragraph("\n" + est.getNombre())
+                    .setBold().setUnderline().setFontSize(11));
+
+            // ITERACIÓN POR MEDIO DE PAGO
+            for (RecaudacionMedioDto medio : est.getMedios()) {
+                document.add(new Paragraph(medio.getNombre())
+                        .setBold().setFontSize(9).setMarginLeft(10));
+
+                // TABLA DE DETALLE
+                float[] columnWidths = {2, 2, 2, 5, 2, 2}; // Ajustado para 6 columnas
+                Table table = new Table(columnWidths).useAllAvailableWidth();
+
+                table.addHeaderCell(new Cell().add(new Paragraph("Factura")).setFontSize(8).setBold());
+                table.addHeaderCell(new Cell().add(new Paragraph("Período")).setFontSize(8).setBold());
+                table.addHeaderCell(new Cell().add(new Paragraph("Legajo")).setFontSize(8).setBold());
+                table.addHeaderCell(new Cell().add(new Paragraph("Apellido, Nombre")).setFontSize(8).setBold());
+                table.addHeaderCell(new Cell().add(new Paragraph("Fecha")).setFontSize(8).setBold());
+                table.addHeaderCell(new Cell().add(new Paragraph("Pagado")).setFontSize(8).setBold());
+
+                for (RecaudacionDetalleDto item : medio.getItems()) {
+                    table.addCell(new Cell().add(new Paragraph(item.getFactura().toString())).setFontSize(8));
+                    table.addCell(new Cell().add(new Paragraph(item.getPeriodo())).setFontSize(8));
+                    table.addCell(new Cell().add(new Paragraph(item.getLegajo().toString())).setFontSize(8));
+                    table.addCell(new Cell().add(new Paragraph(item.getNombre())).setFontSize(8));
+                    table.addCell(new Cell().add(new Paragraph(item.getFecha().format(fmtFecha))).setFontSize(8));
+                    table.addCell(new Cell().add(new Paragraph(fmtMoneda.format(item.getPagado()))).setFontSize(8).setTextAlignment(TextAlignment.RIGHT));
+                }
+                document.add(table);
+
+                // SUBTOTAL DEL MEDIO (Ej: Cantidad de Pagos: 22 - $ 400.698,00)
+                document.add(new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmtMoneda.format(medio.getSubtotal()))
+                        .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(9));
+            }
+
+            // TOTAL DEL ESTABLECIMIENTO
+            int totalPagosEst = est.getMedios().stream().mapToInt(RecaudacionMedioDto::getCantidadPagos).sum();
+            document.add(new Paragraph("Cantidad de Pagos: " + totalPagosEst + " - " + fmtMoneda.format(est.getTotalEstablecimiento()))
+                    .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(9).setItalic());
+        }
+
+        // PIE DE REPORTE: EL TOTAL DE TODOS LOS ESTABLECIMIENTOS (Imagen 6)
+        document.add(new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmtMoneda.format(datos.getGranTotal()))
+                .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(11).setBorderTop(new SolidBorder(1)));
+
+        document.close();
         return out.toByteArray();
     }
 }
