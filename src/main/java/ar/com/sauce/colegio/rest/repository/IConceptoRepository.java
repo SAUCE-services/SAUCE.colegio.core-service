@@ -13,10 +13,11 @@ import java.util.List;
 public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
     @Query(value = "SELECT " +
             "  COALESCE(c.descripcion, 'Sin Asignar') AS descripcion, " +
-            "  ac.importe AS importe " +
+            "  ac.importe AS importe, " +
+            "  CAST(ac.fecha_registro AS DATE) AS fecha_registro " + // 👈 Usamos tu columna real con alias snake_case
             "FROM factura f " +
             "INNER JOIN alumnos_conceptos ac ON f.id_facturas = ac.id_facturas " +
             "LEFT JOIN conceptos c ON ac.id_concepto = c.id_concepto " +
-            "WHERE f.nro_factura = :nroFactura", nativeQuery = true) // 👈 CORRECCIÓN: Filtramos por nro_factura
-    List<ConceptoDetalleProjection> findByNroFactura(@Param("nroFactura") Long nroFactura); // 👈 Sincronizado el parámetro
+            "WHERE f.nro_factura = :nroFactura", nativeQuery = true)
+    List<ConceptoDetalleProjection> findByNroFactura(@Param("nroFactura") Long nroFactura);
 }

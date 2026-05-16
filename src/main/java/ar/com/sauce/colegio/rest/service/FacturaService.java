@@ -83,7 +83,7 @@ public class FacturaService {
                     cp.getDescripcion(), // Ahora traerá "Sin Asignar" o el nombre real
                     "Concepto FACTURADO",
                     cp.getImporte(),     // Traerá los montos reales de la base de datos
-                    obtenerFechaCreacion(f).toLocalDate(),
+                    cp.getFechaRegistro(),
                     f.getPeriodo() != null ? f.getPeriodo().getDescripcion() : ""
             ));
         }
