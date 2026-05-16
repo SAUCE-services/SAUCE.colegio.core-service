@@ -11,9 +11,12 @@ import java.util.List;
 
 @Repository
 public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
-    @Query(value = "SELECT IFNULL(c.descripcion, 'Sin Asignar') as descripcion, ac.importe as importe " +
-            "FROM alumnos_conceptos ac " +
+    @Query(value = "SELECT " +
+            "  COALESCE(c.descripcion, 'Sin Asignar') AS descripcion, " +
+            "  ac.importe AS importe " +
+            "FROM factura f " +
+            "INNER JOIN alumnos_conceptos ac ON f.id_facturas = ac.id_facturas " +
             "LEFT JOIN conceptos c ON ac.id_concepto = c.id_concepto " +
-            "WHERE ac.id_facturas = :facturaId", nativeQuery = true)
-    List<ConceptoDetalleProjection> findByFacturaId(@Param("facturaId") Long facturaId);
+            "WHERE f.nro_factura = :nroFactura", nativeQuery = true) // 👈 CORRECCIÓN: Filtramos por nro_factura
+    List<ConceptoDetalleProjection> findByNroFactura(@Param("nroFactura") Long nroFactura); // 👈 Sincronizado el parámetro
 }

@@ -29,9 +29,10 @@ public class FacturaController {
         return ResponseEntity.ok(facturaService.obtenerHistoriaPorAlumno(alumnoId));
     }
 
-    @GetMapping("/detalle/{facturaId}")
-    public ResponseEntity<List<LineaDetalleDto>> getDetalle(@PathVariable Long facturaId) {
-        return ResponseEntity.ok(facturaService.obtenerDetalleDeFactura(facturaId));
+    @GetMapping("/detalle/{nroFactura}") // 1. Cambiamos la variable en la ruta para que sea semántica
+    public ResponseEntity<List<LineaDetalleDto>> getDetalle(@PathVariable Long nroFactura) {
+        // 2. Ahora coincide exactamente con el @PathVariable y con lo que espera tu Service
+        return ResponseEntity.ok(facturaService.obtenerDetalleDeFactura(nroFactura));
     }
 
     @GetMapping("/recaudacion-diaria")

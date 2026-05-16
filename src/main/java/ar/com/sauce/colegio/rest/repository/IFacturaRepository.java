@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public interface IFacturaRepository extends JpaRepository<Factura, Long> {
@@ -20,11 +21,15 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "ORDER BY f.fecha_estado DESC", nativeQuery = true)
     List<Factura> findByAlumnoId(@Param("alumnoId") Long alumnoId);
 
+    // 1. AGREGA ESTA LÍNEA AQUÍ:
+    @Query(value = "SELECT * FROM factura WHERE nro_factura = :nroFactura LIMIT 1", nativeQuery = true)
+    Optional<Factura> findByNroFactura(@Param("nroFactura") Long nroFactura);
+
 
     @Query(value = "SELECT f.*, f.created as fecha_registro FROM facturas f " +
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "WHERE af.id_alumno = :alumnoId", nativeQuery = true)
-    List<java.util.Map<String, Object>> findByAlumnoIdNative(@Param("alumnoId") Long alumnoId);
+    List<Map<String, Object>> findByAlumnoIdNative(@Param("alumnoId") Long alumnoId);
 
     @Query(value = "SELECT " +
             "IFNULL(e.nombre, 'SIN ESTABLECIMIENTO') as establecimiento, " +

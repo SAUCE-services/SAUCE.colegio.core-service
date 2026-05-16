@@ -20,15 +20,12 @@ import org.springframework.stereotype.Service;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.LinkedHashMap;
-import java.util.Locale;
+import java.util.*;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
@@ -70,21 +67,22 @@ public class FacturaService {
         return dto;
     }
 
-    public List<LineaDetalleDto> obtenerDetalleDeFactura(Long facturaId) {
-        Factura f = facturaRepository.findById(facturaId)
-                .orElseThrow(() -> new RuntimeException("Factura no encontrada"));
+    public List<LineaDetalleDto> obtenerDetalleDeFactura(Long nroFactura) {
+        // 1. CORRECCIÓN CLAVE: Buscamos por nro_factura (720) y NO por el id autoincremental
+        Factura f = facturaRepository.findByNroFactura(nroFactura)
+                .orElseThrow(() -> new RuntimeException("Factura Nro " + nroFactura + " no encontrada"));
 
-        List<LineaDetalleDto> detalles = new java.util.ArrayList<>();
+        List<LineaDetalleDto> detalles = new ArrayList<>();
 
         // Traemos todos los registros de alumnos_conceptos para esta factura
-        List<ConceptoDetalleProjection> conceptos = conceptoRepository.findByFacturaId(facturaId);
+        List<ConceptoDetalleProjection> conceptos = conceptoRepository.findByNroFactura(f.getNroFactura());
 
         for (ConceptoDetalleProjection cp : conceptos) {
             detalles.add(new LineaDetalleDto(
                     f.getFechaEstado(),
                     cp.getDescripcion(), // Ahora traerá "Sin Asignar" o el nombre real
                     "Concepto FACTURADO",
-                    cp.getImporte(),     // Traerá los 0.00 o los montos reales
+                    cp.getImporte(),     // Traerá los montos reales de la base de datos
                     obtenerFechaCreacion(f).toLocalDate(),
                     f.getPeriodo() != null ? f.getPeriodo().getDescripcion() : ""
             ));
