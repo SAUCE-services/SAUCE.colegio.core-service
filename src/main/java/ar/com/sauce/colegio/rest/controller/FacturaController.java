@@ -1,9 +1,6 @@
 package ar.com.sauce.colegio.rest.controller;
 
-import ar.com.sauce.colegio.rest.dto.HistoriaFacturacionDto;
-import ar.com.sauce.colegio.rest.dto.LineaDetalleDto;
-import ar.com.sauce.colegio.rest.dto.ReporteFacturaPeriodoDto;
-import ar.com.sauce.colegio.rest.dto.ReporteRecaudacionDto;
+import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.service.FacturaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -33,6 +30,23 @@ public class FacturaController {
     public ResponseEntity<List<LineaDetalleDto>> getDetalle(@PathVariable Long nroFactura) {
         // 2. Ahora coincide exactamente con el @PathVariable y con lo que espera tu Service
         return ResponseEntity.ok(facturaService.obtenerDetalleDeFactura(nroFactura));
+    }
+
+    @GetMapping("/alumno/{alumnoId}/deuda-individual")
+    public ResponseEntity<DeudaIndividualResponseDto> getDeudaIndividual(@PathVariable Long alumnoId) {
+        return ResponseEntity.ok(facturaService.obtenerDeudaIndividualConTotal(alumnoId));
+    }
+
+    @GetMapping("/alumno/{alumnoId}/deuda-individual-pdf")
+    public ResponseEntity<byte[]> descargarPdfDeudaIndividual(@PathVariable Long alumnoId) {
+        // 👈 El service ahora solo necesita el alumnoId
+        byte[] pdfContents = facturaService.generarPdfDeudaIndividual(alumnoId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.add("Content-Disposition", "inline; filename=deuda_individual_" + alumnoId + ".pdf");
+
+        return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
     }
 
     @GetMapping("/recaudacion-diaria")

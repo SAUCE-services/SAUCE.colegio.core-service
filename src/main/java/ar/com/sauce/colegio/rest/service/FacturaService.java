@@ -40,6 +40,8 @@ public class FacturaService {
     private IConceptoRepository conceptoRepository;
     @Autowired
     private IPeriodoRepository periodoRepository;
+    @Autowired
+    private ConceptoService conceptoService;
 
     public HistoriaFacturacionDto obtenerHistoriaPorAlumno(Long alumnoId) {
         Alumno alumno = alumnoRepository.findById(alumnoId)
@@ -103,6 +105,125 @@ public class FacturaService {
 
         return detalles;
     }
+
+    public DeudaIndividualResponseDto obtenerDeudaIndividualConTotal(Long alumnoId) {
+        // 1. Obtenemos las líneas de detalle usando tu servicio de conceptos existente
+        List<LineaDetalleDto> detalles = conceptoService.obtenerDeudaIndividual(alumnoId);
+
+        // 2. Sumamos matemáticamente todos los importes usando reduce con BigDecimal
+        BigDecimal totalDeuda = detalles.stream()
+                .map(LineaDetalleDto::getImporte)
+                .filter(Objects::nonNull) // Evitamos NullPointerException si algún importe viene null
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 3. Envolvemos todo en el nuevo DTO
+        return new DeudaIndividualResponseDto(detalles, totalDeuda);
+    }
+
+    public byte[] generarPdfDeudaIndividual(Long alumnoId) {
+        // 1. Obtenemos el DTO contable estructurado con las líneas de detalle y el total en BigDecimal
+        DeudaIndividualResponseDto datosDeuda = obtenerDeudaIndividualConTotal(alumnoId);
+
+        // 2. EXTRAEMOS LOS DATOS DEL ALUMNO AUTOMÁTICAMENTE DESDE TU ALUMNO REPOSITORY
+        AlumnoCompletoDto alumnoDto = alumnoRepository.findById(alumnoId)
+                .map(a -> {
+                    AlumnoCompletoDto dto = new AlumnoCompletoDto();
+                    dto.setApellido(a.getApellido()); // 👈 CORREGIDO: Se agregó "dto."
+                    dto.setNombre(a.getNombre());     // 👈 CORREGIDO: Se agregó "dto."
+                    dto.setNroDocumento(a.getNroDocumento());
+                    dto.setCurso(a.getCurso());       // 👈 CORREGIDO: Se agregó "dto."
+                    return dto;
+                }).orElseThrow(() -> new RuntimeException("Alumno no encontrado con legajo: " + alumnoId));
+
+        String nombreAlumno = alumnoDto.getApellido() + ", " + alumnoDto.getNombre();
+        String nroDocumento = alumnoDto.getNroDocumento();
+        String cursoAlumno = alumnoDto.getCurso();
+
+        // --- CONFIGURACIÓN DE ITEXT ---
+        NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new java.util.Locale("es", "AR"));
+        DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
+        DateTimeFormatter dtfTablas = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(out);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document document = new Document(pdf, PageSize.A4);
+
+        document.setMargins(20, 20, 20, 40);
+
+        // --- ENCABEZADO ---
+        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
+                .setTextAlignment(TextAlignment.RIGHT)
+                .setFontSize(8)
+                .setMarginBottom(0));
+
+        document.add(new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio")
+                .setTextAlignment(TextAlignment.CENTER)
+                .setBold().setMarginTop(0).setFontSize(11));
+
+        document.add(new Paragraph("Reporte de Deuda Individual")
+                .setTextAlignment(TextAlignment.CENTER)
+                .setBold().setFontSize(13));
+
+        // --- BLOQUE DE DATOS DEL ALUMNO ---
+        Table infoTable = new Table(new float[]{1.5f, 4.5f, 1f, 3f}).useAllAvailableWidth();
+        infoTable.setMarginBottom(15);
+
+        infoTable.addCell(new Cell().add(new Paragraph("Legajo:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        infoTable.addCell(new Cell().add(new Paragraph(alumnoId.toString())).setFontSize(9).setBorder(Border.NO_BORDER));
+        infoTable.addCell(new Cell().add(new Paragraph("Curso:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        infoTable.addCell(new Cell().add(new Paragraph(cursoAlumno != null ? cursoAlumno : "Sin Asignar")).setFontSize(9).setBorder(Border.NO_BORDER));
+
+        infoTable.addCell(new Cell().add(new Paragraph("Alumno:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        infoTable.addCell(new Cell().add(new Paragraph(nombreAlumno)).setFontSize(9).setBorder(Border.NO_BORDER));
+        infoTable.addCell(new Cell().add(new Paragraph("Número de documento:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        infoTable.addCell(new Cell().add(new Paragraph(nroDocumento)).setFontSize(9).setBorder(Border.NO_BORDER));
+        // Completamos las celdas de la fila para que la tabla mantenga la consistencia estructural
+        infoTable.addCell(new Cell().setBorder(Border.NO_BORDER));
+        infoTable.addCell(new Cell().setBorder(Border.NO_BORDER));
+
+        document.add(infoTable);
+
+        // --- GRILLA DE CONCEPTOS ---
+        float[] columnWidths = {1.8f, 4.2f, 2.2f, 1.8f, 1.8f, 2.2f};
+        Table table = new Table(columnWidths).useAllAvailableWidth();
+
+        table.addHeaderCell(new Cell().add(new Paragraph("F.Estado")).setBold().setFontSize(9));
+        table.addHeaderCell(new Cell().add(new Paragraph("Concepto")).setBold().setFontSize(9));
+        table.addHeaderCell(new Cell().add(new Paragraph("Estado")).setBold().setFontSize(9));
+        table.addHeaderCell(new Cell().add(new Paragraph("Importe")).setBold().setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
+        table.addHeaderCell(new Cell().add(new Paragraph("F.Registro")).setBold().setFontSize(9));
+        table.addHeaderCell(new Cell().add(new Paragraph("Periodo")).setBold().setFontSize(9));
+
+        if (datosDeuda.getDetalles().isEmpty()) {
+            table.addCell(new Cell(1, 6)
+                    .add(new Paragraph("El alumno no registra deudas pendientes en su cuenta corriente."))
+                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
+        } else {
+            for (LineaDetalleDto item : datosDeuda.getDetalles()) {
+                String fEstado = item.getFechaEstado() != null ? item.getFechaEstado().format(dtfTablas) : "";
+                String fRegistro = item.getFechaRegistro() != null ? item.getFechaRegistro().format(dtfTablas) : "";
+
+                table.addCell(new Cell().add(new Paragraph(fEstado)).setFontSize(8));
+                table.addCell(new Cell().add(new Paragraph(item.getConcepto() != null ? item.getConcepto() : "")).setFontSize(8));
+                table.addCell(new Cell().add(new Paragraph(item.getEstado() != null ? item.getEstado() : "")).setFontSize(8));
+                table.addCell(new Cell().add(new Paragraph(item.getImporte() != null ? formatoMoneda.format(item.getImporte()) : "$ 0,00")).setFontSize(8).setTextAlignment(TextAlignment.RIGHT));
+                table.addCell(new Cell().add(new Paragraph(fRegistro)).setFontSize(8));
+                table.addCell(new Cell().add(new Paragraph(item.getPeriodo() != null ? item.getPeriodo() : "")).setFontSize(8));
+            }
+        }
+        document.add(table);
+
+        // --- TOTAL EN BIGDECIMAL ---
+        String totalStr = formatoMoneda.format(datosDeuda.getTotalDeuda());
+        document.add(new Paragraph("\nTOTAL DEUDA: " + totalStr)
+                .setBold().setTextAlignment(TextAlignment.RIGHT)
+                .setFontSize(11).setBorderTop(new SolidBorder(1)));
+
+        document.close();
+        return out.toByteArray();
+    }
+
     private LocalDateTime obtenerFechaCreacion(Factura factura) {
         try {
             java.lang.reflect.Field field = ar.com.sauce.colegio.rest.model.Auditable.class.getDeclaredField("created");
