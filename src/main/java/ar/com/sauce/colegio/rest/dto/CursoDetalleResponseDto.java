@@ -11,6 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 public class CursoDetalleResponseDto {
     // Datos de la cabecera (para los campos de arriba en tu imagen)
+    private String nombreCurso;
     private String nombreMaestro;
     private String nombreEstablecimiento;
     private String nombreTurno;
