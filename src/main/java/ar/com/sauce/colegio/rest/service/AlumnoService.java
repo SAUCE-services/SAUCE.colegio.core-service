@@ -5,9 +5,23 @@ import ar.com.sauce.colegio.rest.dto.AlumnoDto;
 import ar.com.sauce.colegio.rest.dto.CursoDetalleResponseDto;
 import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.borders.SolidBorder;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.properties.TextAlignment;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -300,5 +314,82 @@ public class AlumnoService {
         }
 
         return dto;
+    }
+
+    public byte[] generarPdfAlumnosPorCurso(String cursoNombre) {
+        // 1. Recuperamos el DTO estructurado con toda la metadata del curso y sus alumnos asignados
+       CursoDetalleResponseDto datosCurso = findCursoConAlumnos(cursoNombre);
+
+        DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(out);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document document = new Document(pdf, PageSize.A4);
+
+        // Mantenemos tus márgenes estándar (40 a la izquierda para los ganchos de la carpeta)
+        document.setMargins(20, 20, 20, 40);
+
+        // --- ENCABEZADO ---
+        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
+                .setTextAlignment(TextAlignment.RIGHT)
+                .setFontSize(8)
+                .setMarginBottom(0));
+
+        document.add(new Paragraph(datosCurso.getNombreEstablecimiento() != null ? datosCurso.getNombreEstablecimiento() : "Unión Vecinal de Servicios Públicos El Sauce - Colegio")
+                .setTextAlignment(TextAlignment.CENTER)
+                .setBold().setMarginTop(0).setFontSize(11));
+
+        document.add(new Paragraph("Alumnos por Curso")
+                .setTextAlignment(TextAlignment.CENTER)
+                .setBold().setFontSize(13));
+
+        // --- BLOQUE DE DETALLE DEL CURSO (CABECERA INFORMATIVA) ---
+        Table headerTable = new Table(new float[]{1.5f, 4.5f, 1f, 3f}).useAllAvailableWidth();
+        headerTable.setMarginBottom(15);
+        headerTable.setMarginTop(10);
+
+        headerTable.addCell(new Cell().add(new Paragraph("Curso:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        headerTable.addCell(new Cell().add(new Paragraph(cursoNombre.toUpperCase())).setFontSize(9).setBorder(Border.NO_BORDER));
+        headerTable.addCell(new Cell().add(new Paragraph("Ciclo:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        headerTable.addCell(new Cell().add(new Paragraph(datosCurso.getNombreCiclo() != null ? datosCurso.getNombreCiclo() : "")).setFontSize(9).setBorder(Border.NO_BORDER));
+
+        headerTable.addCell(new Cell().add(new Paragraph("Docente:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        headerTable.addCell(new Cell().add(new Paragraph(datosCurso.getNombreMaestro() != null ? datosCurso.getNombreMaestro() : "Sin Asignar")).setFontSize(9).setBorder(Border.NO_BORDER));
+        headerTable.addCell(new Cell().add(new Paragraph("Turno:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
+        headerTable.addCell(new Cell().add(new Paragraph(datosCurso.getNombreTurno() != null ? datosCurso.getNombreTurno() : "")).setFontSize(9).setBorder(Border.NO_BORDER));
+
+        document.add(headerTable);
+
+        // --- GRILLA DE ALUMNOS ---
+        // Repartimos el ancho: 2f para Legajo y 8f para el nombre completo
+        Table table = new Table(new float[]{2f, 8f}).useAllAvailableWidth();
+
+        // Encabezados de columnas
+        table.addHeaderCell(new Cell().add(new Paragraph("Legajo")).setBold().setFontSize(9));
+        table.addHeaderCell(new Cell().add(new Paragraph("Apellido, Nombre")).setBold().setFontSize(9));
+
+        if (datosCurso.getAlumnos() == null || datosCurso.getAlumnos().isEmpty()) {
+            table.addCell(new Cell(1, 2)
+                    .add(new Paragraph("No se encontraron alumnos inscriptos en este curso."))
+                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
+        } else {
+            for (ar.com.sauce.colegio.rest.dto.AlumnoDto alumno : datosCurso.getAlumnos()) {
+                table.addCell(new Cell().add(new Paragraph(alumno.getAlumnoId().toString())).setFontSize(8));
+                table.addCell(new Cell().add(new Paragraph(alumno.getNombreCompleto())).setFontSize(8));
+            }
+        }
+        document.add(table);
+
+        // --- PIE DE REPORTE ---
+        int totalAlumnos = datosCurso.getAlumnos() != null ? datosCurso.getAlumnos().size() : 0;
+        document.add(new Paragraph("\nTotal de Alumnos: " + totalAlumnos)
+                .setBold()
+                .setTextAlignment(TextAlignment.RIGHT)
+                .setFontSize(10)
+                .setBorderTop(new SolidBorder(1)));
+
+        document.close();
+        return out.toByteArray();
     }
 }

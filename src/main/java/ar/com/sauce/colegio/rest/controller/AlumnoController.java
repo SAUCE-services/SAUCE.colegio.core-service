@@ -7,6 +7,7 @@ import ar.com.sauce.colegio.rest.service.AlumnoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,5 +44,18 @@ public class AlumnoController {
         } catch (Exception e) {
             return new ResponseEntity<>((HttpHeaders) null, HttpStatus.NOT_FOUND);
         }
+    }
+
+    @GetMapping("/curso-pdf")
+    public ResponseEntity<byte[]> descargarPdfAlumnosByCurso(@RequestParam String nombre) {
+        // Generamos los bytes del PDF invocando el nuevo método del Service
+        byte[] pdfContents = service.generarPdfAlumnosPorCurso(nombre);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        // 'inline' abre de una el visor de PDF del navegador web listo para mandar a imprimir
+        headers.add("Content-Disposition", "inline; filename=alumnos_curso_" + nombre.replaceAll(" ", "_") + ".pdf");
+
+        return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
     }
 }
