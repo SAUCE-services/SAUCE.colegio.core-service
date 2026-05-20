@@ -71,12 +71,15 @@ public class AlumnoService {
                 .collect(Collectors.toList());
     }
 
-    // sauce/colegio/rest/service/AlumnoService.java
+    // Dentro de ar.com.sauce.colegio.rest.service.AlumnoService.java
     public CursoDetalleResponseDto findCursoConAlumnos(String cursoNombre) {
         String nombreBusqueda = cursoNombre.trim();
 
-        // 1. ✅ Usamos el nuevo método optimizado (1 sola consulta para toda la cabecera)
-        Curso curso = cursoRepository.findByDescripcionConDetalles(nombreBusqueda).orElse(null);
+        // 1. ✅ Trae la lista de coincidencia y evita de raíz el IncorrectResultSizeDataAccessException
+        List<Curso> cursosConincidentes = cursoRepository.findByDescripcionConDetalles(nombreBusqueda);
+
+        // Tomamos el primero de la lista de manera segura
+        Curso curso = cursosConincidentes.stream().findFirst().orElse(null);
 
         // 2. Traemos la lista de alumnos
         List<AlumnoDto> alumnosDto = alumnoRepository.findAllByCursoIgnoreCase(nombreBusqueda).stream()
@@ -88,7 +91,6 @@ public class AlumnoService {
 
         CursoDetalleResponseDto response = new CursoDetalleResponseDto();
         if (curso != null) {
-            // Al usar JOIN FETCH, estos getters ya tienen la información y no van a la DB
             response.setNombreMaestro(curso.getMaestro().getApellido() + ", " + curso.getMaestro().getNombre());
             response.setNombreTurno(curso.getTurno().getDescripcion());
             response.setNombreEstablecimiento(curso.getEstablecimiento().getNombre());
@@ -97,7 +99,6 @@ public class AlumnoService {
         response.setAlumnos(alumnosDto);
         return response;
     }
-
     @Transactional
     public void guardarAlumnoCompleto(AlumnoCompletoDto dto) {
         // 1. PROCESAR ALUMNO (O crear o recuperar existente)
