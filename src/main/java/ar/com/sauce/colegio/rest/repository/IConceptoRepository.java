@@ -3,11 +3,14 @@ package ar.com.sauce.colegio.rest.repository;
 import ar.com.sauce.colegio.rest.model.Concepto;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Repository
@@ -37,4 +40,35 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
             "WHERE ac.id_alumno = :alumnoId " +
             "  AND f.id_estado = 2", nativeQuery = true) // 👈 FILTRO CRÍTICO: Solo lo vinculado a facturas NO pagadas
     List<DeudaIndividualProjection> findDeudaIndividualByAlumnoId(@Param("alumnoId") Long alumnoId);
+
+    @Query(value = "SELECT " +
+            "  ac.fecha_registro AS fechaEstado, " +
+            "  c.descripcion AS concepto, " +
+            "  te.descripcion AS estado, " +
+            "  ac.importe AS importe, " +
+            "  ac.fecha_registro AS fechaRegistro, " +
+            "  p.descripcion AS periodo " +
+            "FROM alumnos_conceptos ac " +
+            "INNER JOIN conceptos c ON ac.id_concepto = c.id_concepto " +
+            "INNER JOIN periodos p ON ac.id_periodo = p.id_periodo " +
+            "INNER JOIN tipos_estado te ON ac.id_estado = te.id_estado " + // 👈 Corregido a id_estado
+            "WHERE ac.id_alumno = :alumnoId " +
+            "  AND UPPER(TRIM(p.descripcion)) LIKE UPPER(CONCAT('%', :periodoNombre, '%')) " + // 👈 Filtro por Nombre String
+            "ORDER BY ac.fecha_registro DESC", nativeQuery = true)
+    List<Object[]> findNovedadesByAlumnoYPeriodoNombre(
+            @Param("alumnoId") Long alumnoId,
+            @Param("periodoNombre") String periodoNombre);
+
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO alumnos_conceptos " +
+            "  (id_alumno, id_periodo, id_concepto, importe, id_estado, fecha_estado, fecha_registro) " +
+            "VALUES " +
+            "  (:alumnoId, :periodoId, :conceptoId, :importe, 4, CAST(CURRENT_DATE AS DATE), CAST(CURRENT_DATE AS DATE))",
+            nativeQuery = true)
+    void registrarNovedadManual(
+            @Param("alumnoId") Long alumnoId,
+            @Param("periodoId") Long periodoId,
+            @Param("conceptoId") Long conceptoId,
+            @Param("importe") BigDecimal importe);
 }

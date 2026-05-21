@@ -2,8 +2,13 @@ package ar.com.sauce.colegio.rest.service;
 
 import ar.com.sauce.colegio.rest.dto.ConceptoDto;
 import ar.com.sauce.colegio.rest.dto.LineaDetalleDto;
+import ar.com.sauce.colegio.rest.dto.NovedadCargaDto;
+import ar.com.sauce.colegio.rest.dto.NovedadesAlumnoResponseDto;
 import ar.com.sauce.colegio.rest.model.Concepto;
+import ar.com.sauce.colegio.rest.model.Periodo;
+import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
 import ar.com.sauce.colegio.rest.repository.IConceptoRepository;
+import ar.com.sauce.colegio.rest.repository.IPeriodoRepository;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -20,19 +25,28 @@ import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.text.NumberFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ConceptoService {
 
     @Autowired
     private IConceptoRepository conceptoRepository;
+    @Autowired
+    private IAlumnoRepository alumnoRepository;
+    @Autowired
+    private IPeriodoRepository periodoRepository;
 
     public Page<ConceptoDto> findAllPaged(Pageable pageable) {
         return conceptoRepository.findAll(pageable).map(this::convertToDto);
@@ -147,5 +161,78 @@ public class ConceptoService {
 
         document.close();
         return out.toByteArray();
+    }
+
+    /**
+     * Consulta las novedades por Alumno filtrando mediante el NOMBRE (String) del Período
+     */
+    public NovedadesAlumnoResponseDto obtenerNovedadesPorAlumnoYPeriodoNombre(Long alumnoId, String periodoNombre) {
+        ar.com.sauce.colegio.rest.model.Alumno alumno = alumnoRepository.findById(alumnoId)
+                .orElseThrow(() -> new RuntimeException("Alumno no encontrado con legajo: " + alumnoId));
+
+        // Ejecutamos la consulta filtrada por el texto exacto del período
+        List<Object[]> resultados = conceptoRepository.findNovedadesByAlumnoYPeriodoNombre(alumnoId, periodoNombre.trim());
+
+        List<LineaDetalleDto> grilla = resultados.stream().map(row -> {
+            LineaDetalleDto linea = new LineaDetalleDto();
+
+            // 🛡️ PARSEO SEGURO DE FECHA ESTADO (row[0])
+            if (row[0] != null) {
+                if (row[0] instanceof LocalDate) {
+                    linea.setFechaEstado((LocalDate) row[0]);
+                } else if (row[0] instanceof Date) {
+                    linea.setFechaEstado(((Date) row[0]).toLocalDate());
+                } else if (row[0] instanceof Timestamp) {
+                    linea.setFechaEstado(((Timestamp) row[0]).toLocalDateTime().toLocalDate());
+                }
+            }
+
+            linea.setConcepto((String) row[1]);
+            linea.setEstado((String) row[2]);
+            linea.setImporte(row[3] != null ? new BigDecimal(row[3].toString()) : BigDecimal.ZERO);
+
+            // 🛡️ PARSEO SEGURO DE FECHA REGISTRO (row[4])
+            if (row[4] != null) {
+                if (row[4] instanceof LocalDate) {
+                    linea.setFechaRegistro((LocalDate) row[4]);
+                } else if (row[4] instanceof Date) {
+                    linea.setFechaRegistro(((Date) row[4]).toLocalDate());
+                } else if (row[4] instanceof Timestamp) {
+                    linea.setFechaRegistro(((Timestamp) row[4]).toLocalDateTime().toLocalDate());
+                }
+            }
+
+            linea.setPeriodo((String) row[5]);
+            return linea;
+        }).collect(Collectors.toList());
+
+        NovedadesAlumnoResponseDto response = new NovedadesAlumnoResponseDto();
+        response.setLegajo(alumno.getAlumnoId());
+        response.setNombreCompleto(alumno.getApellido() + ", " + alumno.getNombre());
+        response.setDetallesGrilla(grilla);
+
+        return response;
+    }
+
+    /**
+     * Inserta la novedad resolviendo internamente el ID del período en base a su String descriptivo
+     */
+    public List<LineaDetalleDto> agregarNovedadManualConPeriodoNombre(NovedadCargaDto dto) {
+        // Buscamos dinámicamente el período en la base de datos por su descripción
+        Periodo per = periodoRepository.findAll().stream()
+                .filter(p -> p.getDescripcion().equalsIgnoreCase(dto.getPeriodoNombre().trim()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("El período especificado no existe: " + dto.getPeriodoNombre()));
+
+        // Insertamos usando el ID real recuperado
+        conceptoRepository.registrarNovedadManual(
+                dto.getAlumnoId(),
+                per.getPeriodoId(), // 👈 ID resuelto de forma segura en el Back
+                dto.getConceptoId(),
+                dto.getImporte()
+        );
+
+        // Retornamos los datos frescos filtrados por ese mismo período para que se actualice la grilla
+        return obtenerNovedadesPorAlumnoYPeriodoNombre(dto.getAlumnoId(), dto.getPeriodoNombre()).getDetallesGrilla();
     }
 }

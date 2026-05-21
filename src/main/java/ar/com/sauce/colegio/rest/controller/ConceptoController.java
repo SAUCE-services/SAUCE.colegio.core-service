@@ -1,6 +1,9 @@
 package ar.com.sauce.colegio.rest.controller;
 
 import ar.com.sauce.colegio.rest.dto.ConceptoDto;
+import ar.com.sauce.colegio.rest.dto.LineaDetalleDto;
+import ar.com.sauce.colegio.rest.dto.NovedadCargaDto;
+import ar.com.sauce.colegio.rest.dto.NovedadesAlumnoResponseDto;
 import ar.com.sauce.colegio.rest.model.Concepto;
 import ar.com.sauce.colegio.rest.service.ConceptoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/concepto")
@@ -58,5 +63,20 @@ public class ConceptoController {
         headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
 
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
+
+    // 1. GET para cargar la grilla segmentada por el nombre de texto del período (ej: /novedades/alumno/1484?periodoNombre=MAYO%20-%202026)
+    @GetMapping("/novedades/alumno/{alumnoId}")
+    public ResponseEntity<NovedadesAlumnoResponseDto> consultarNovedadesAlumno(
+            @PathVariable Long alumnoId,
+            @RequestParam String periodoNombre) { // 👈 Ahora es un String plano
+        return ResponseEntity.ok(service.obtenerNovedadesPorAlumnoYPeriodoNombre(alumnoId, periodoNombre));
+    }
+
+    // 2. POST para registrar la novedad manual y refrescar la grilla del mes actual
+    @PostMapping("/novedades/agregar")
+    public ResponseEntity<List<LineaDetalleDto>> agregarNovedadAlumno(@RequestBody NovedadCargaDto dto) {
+        List<LineaDetalleDto> grillaActualizada = service.agregarNovedadManualConPeriodoNombre(dto);
+        return new ResponseEntity<>(grillaActualizada, HttpStatus.OK);
     }
 }
