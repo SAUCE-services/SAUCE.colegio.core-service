@@ -4,6 +4,7 @@ import ar.com.sauce.colegio.rest.dto.ComboDto;
 import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +25,7 @@ public class CombosController {
     private final IParentescoRepository parentescoRepository;
     private final IGrupoSanguineoRepository grupoSanguineoRepository;
     private final IObraSocialRepository obraSocialRepository;
+    private final IConceptoRepository conceptoRepository;
 
     // --- SECCIÓN ALUMNO ---
     @GetMapping("/documentos")
@@ -82,5 +84,9 @@ public class CombosController {
     @GetMapping("/obras-sociales")
     public List<ObraSocial> getObrasSociales() {
         return obraSocialRepository.findAll();
+    }
+    @GetMapping("/conceptos")
+    public List<Concepto> getConceptos() {
+        return conceptoRepository.findAll();
     }
 }
