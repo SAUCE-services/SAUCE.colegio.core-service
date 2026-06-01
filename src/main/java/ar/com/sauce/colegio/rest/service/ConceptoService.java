@@ -10,20 +10,15 @@ import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
 import ar.com.sauce.colegio.rest.repository.IConceptoRepository;
 import ar.com.sauce.colegio.rest.repository.IPeriodoRepository;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.borders.Border;
-import com.itextpdf.layout.borders.SolidBorder;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.properties.TextAlignment;
+
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -100,66 +95,79 @@ public class ConceptoService {
      * Genera un listado en PDF con absolutamente todos los conceptos vigentes
      */
     public byte[] generarPdfTodosLosConceptos() {
-        // Recuperamos la lista completa de conceptos ordenados por ID
         List<Concepto> conceptos = conceptoRepository.findAll();
 
         NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4);
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
-        // Margen izquierdo ajustado a 40 para ganchos o carpetas
-        document.setMargins(20, 20, 20, 40);
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
 
-        // --- ENCABEZADO ---
-        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(8)
-                .setMarginBottom(0));
+            // FUENTES
+            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font font8_5 = FontFactory.getFont(FontFactory.HELVETICA, 8.5f);
+            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font13B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
 
-        document.add(new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setBold().setMarginTop(0).setFontSize(11));
+            // ENCABEZADO
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), FontFactory.getFont(FontFactory.HELVETICA, 8));
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pGen);
 
-        document.add(new Paragraph("Listado General de Conceptos")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setBold().setFontSize(13).setMarginBottom(15));
+            Paragraph pTit = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", font11B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            document.add(pTit);
 
-        // --- TABLA DE CONCEPTOS (3 Columnas: ID, Descripción, Importe) ---
-        float[] columnWidths = {1.5f, 6.0f, 2.5f};
-        Table table = new Table(columnWidths).useAllAvailableWidth();
+            Paragraph pSub = new Paragraph("Listado General de Conceptos", font13B);
+            pSub.setAlignment(Element.ALIGN_CENTER);
+            pSub.setSpacingAfter(15f);
+            document.add(pSub);
 
-        // Encabezados de la tabla
-        table.addHeaderCell(new Cell().add(new Paragraph("Código")).setBold().setFontSize(9));
-        table.addHeaderCell(new Cell().add(new Paragraph("Concepto / Descripción")).setBold().setFontSize(9));
-        table.addHeaderCell(new Cell().add(new Paragraph("Importe Base")).setBold().setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
+            // TABLA DE CONCEPTOS
+            PdfPTable table = new PdfPTable(new float[]{1.5f, 6.0f, 2.5f});
+            table.setWidthPercentage(100);
 
-        if (conceptos.isEmpty()) {
-            table.addCell(new Cell(1, 3)
-                    .add(new Paragraph("No se registran conceptos cargados en el sistema."))
-                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
-        } else {
-            for (Concepto con : conceptos) {
-                String importeStr = con.getImporte() != null ? formatoMoneda.format(con.getImporte()) : "$ 0,00";
-
-                table.addCell(new Cell().add(new Paragraph(con.getConceptoId().toString())).setFontSize(8.5f));
-                table.addCell(new Cell().add(new Paragraph(con.getDescripcion())).setFontSize(8.5f));
-                table.addCell(new Cell().add(new Paragraph(importeStr)).setFontSize(8.5f).setTextAlignment(TextAlignment.RIGHT));
+            // Encabezados
+            String[] headers = {"Código", "Concepto / Descripción", "Importe Base"};
+            for (int i = 0; i < headers.length; i++) {
+                PdfPCell cell = new PdfPCell(new Phrase(headers[i], font9B));
+                if (i == 2) cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                table.addCell(cell);
             }
+
+            // Filas
+            if (conceptos.isEmpty()) {
+                PdfPCell emptyCell = new PdfPCell(new Phrase("No se registran conceptos cargados en el sistema.", font8_5));
+                emptyCell.setColspan(3);
+                emptyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(emptyCell);
+            } else {
+                for (Concepto con : conceptos) {
+                    table.addCell(new PdfPCell(new Phrase(con.getConceptoId().toString(), font8_5)));
+                    table.addCell(new PdfPCell(new Phrase(con.getDescripcion(), font8_5)));
+
+                    PdfPCell cellImp = new PdfPCell(new Phrase(con.getImporte() != null ? formatoMoneda.format(con.getImporte()) : "$ 0,00", font8_5));
+                    cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    table.addCell(cellImp);
+                }
+            }
+            document.add(table);
+
+            // PIE DE REPORTE
+            document.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+            Paragraph pTotal = new Paragraph("\nCantidad Total de Conceptos: " + conceptos.size(), font9B);
+            pTotal.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pTotal);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de conceptos", e);
         }
-        document.add(table);
-
-        // --- PIE DE REPORTE ---
-        document.add(new Paragraph("\nCantidad Total de Conceptos: " + conceptos.size())
-                .setBold()
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(9)
-                .setBorderTop(new SolidBorder(1)));
-
-        document.close();
         return out.toByteArray();
     }
 

@@ -4,17 +4,12 @@ import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.borders.Border;
-import com.itextpdf.layout.borders.SolidBorder;
-import com.itextpdf.layout.element.AreaBreak;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.properties.TextAlignment;
+
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
+
+import org.openpdf.text.pdf.PdfWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.text.NumberFormat;
@@ -22,10 +17,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
@@ -121,107 +118,109 @@ public class FacturaService {
     }
 
     public byte[] generarPdfDeudaIndividual(Long alumnoId) {
-        // 1. Obtenemos el DTO contable estructurado con las líneas de detalle y el total en BigDecimal
         DeudaIndividualResponseDto datosDeuda = obtenerDeudaIndividualConTotal(alumnoId);
 
-        // 2. EXTRAEMOS LOS DATOS DEL ALUMNO AUTOMÁTICAMENTE DESDE TU ALUMNO REPOSITORY
         AlumnoCompletoDto alumnoDto = alumnoRepository.findById(alumnoId)
                 .map(a -> {
                     AlumnoCompletoDto dto = new AlumnoCompletoDto();
-                    dto.setApellido(a.getApellido()); // 👈 CORREGIDO: Se agregó "dto."
-                    dto.setNombre(a.getNombre());     // 👈 CORREGIDO: Se agregó "dto."
+                    dto.setApellido(a.getApellido());
+                    dto.setNombre(a.getNombre());
                     dto.setNroDocumento(a.getNroDocumento());
-                    dto.setCurso(a.getCurso());       // 👈 CORREGIDO: Se agregó "dto."
+                    dto.setCurso(a.getCurso());
                     return dto;
-                }).orElseThrow(() -> new RuntimeException("Alumno no encontrado con legajo: " + alumnoId));
+                }).orElseThrow(() -> new RuntimeException("Alumno no encontrado: " + alumnoId));
 
-        String nombreAlumno = alumnoDto.getApellido() + ", " + alumnoDto.getNombre();
-        String nroDocumento = alumnoDto.getNroDocumento();
-        String cursoAlumno = alumnoDto.getCurso();
-
-        // --- CONFIGURACIÓN DE ITEXT ---
         NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new java.util.Locale("es", "AR"));
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
         DateTimeFormatter dtfTablas = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4);
+        // Constructor estándar de OpenPDF: Document(Rectangle, marginLeft, marginRight, marginTop, marginBottom)
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
+        PdfWriter.getInstance(document, out);
+        document.open();
 
-        document.setMargins(20, 20, 20, 40);
+        // FUENTES EXPLÍCITAS
+        Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+        Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
 
-        // --- ENCABEZADO ---
-        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(8)
-                .setMarginBottom(0));
+        // ENCABEZADO
+        Paragraph fecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
+        fecha.setAlignment(Element.ALIGN_RIGHT);
+        document.add(fecha);
 
-        document.add(new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setBold().setMarginTop(0).setFontSize(11));
+        Paragraph titulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11));
+        titulo.setAlignment(Element.ALIGN_CENTER);
+        document.add(titulo);
 
-        document.add(new Paragraph("Reporte de Deuda Individual")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setBold().setFontSize(13));
+        Paragraph subtitulo = new Paragraph("Reporte de Deuda Individual", fontHeader);
+        subtitulo.setAlignment(Element.ALIGN_CENTER);
+        document.add(subtitulo);
+        document.add(Chunk.NEWLINE);
 
-        // --- BLOQUE DE DATOS DEL ALUMNO ---
-        Table infoTable = new Table(new float[]{1.5f, 4.5f, 1f, 3f}).useAllAvailableWidth();
-        infoTable.setMarginBottom(15);
+        // TABLA ALUMNO
+        PdfPTable infoTable = new PdfPTable(4);
+        infoTable.setWidthPercentage(100);
+        try { infoTable.setWidths(new float[]{1.5f, 4.5f, 1f, 3f}); } catch (Exception ignored) {}
 
-        infoTable.addCell(new Cell().add(new Paragraph("Legajo:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        infoTable.addCell(new Cell().add(new Paragraph(alumnoId.toString())).setFontSize(9).setBorder(Border.NO_BORDER));
-        infoTable.addCell(new Cell().add(new Paragraph("Curso:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        infoTable.addCell(new Cell().add(new Paragraph(cursoAlumno != null ? cursoAlumno : "Sin Asignar")).setFontSize(9).setBorder(Border.NO_BORDER));
-
-        infoTable.addCell(new Cell().add(new Paragraph("Alumno:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        infoTable.addCell(new Cell().add(new Paragraph(nombreAlumno)).setFontSize(9).setBorder(Border.NO_BORDER));
-        infoTable.addCell(new Cell().add(new Paragraph("Número de documento:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        infoTable.addCell(new Cell().add(new Paragraph(nroDocumento)).setFontSize(9).setBorder(Border.NO_BORDER));
-        // Completamos las celdas de la fila para que la tabla mantenga la consistencia estructural
-        infoTable.addCell(new Cell().setBorder(Border.NO_BORDER));
-        infoTable.addCell(new Cell().setBorder(Border.NO_BORDER));
+        addCell(infoTable, "Legajo:", fontBold);
+        addCell(infoTable, alumnoId.toString(), fontNormal);
+        addCell(infoTable, "Curso:", fontBold);
+        addCell(infoTable, alumnoDto.getCurso() != null ? alumnoDto.getCurso() : "Sin Asignar", fontNormal);
+        addCell(infoTable, "Alumno:", fontBold);
+        addCell(infoTable, alumnoDto.getApellido() + ", " + alumnoDto.getNombre(), fontNormal);
+        addCell(infoTable, "DNI:", fontBold);
+        addCell(infoTable, alumnoDto.getNroDocumento(), fontNormal);
 
         document.add(infoTable);
+        document.add(Chunk.NEWLINE);
 
-        // --- GRILLA DE CONCEPTOS ---
-        float[] columnWidths = {1.8f, 4.2f, 2.2f, 1.8f, 1.8f, 2.2f};
-        Table table = new Table(columnWidths).useAllAvailableWidth();
+        // GRILLA CONCEPTOS
+        PdfPTable table = new PdfPTable(6);
+        table.setWidthPercentage(100);
+        try { table.setWidths(new float[]{1.8f, 4.2f, 2.2f, 1.8f, 1.8f, 2.2f}); } catch (Exception ignored) {}
 
-        table.addHeaderCell(new Cell().add(new Paragraph("F.Estado")).setBold().setFontSize(9));
-        table.addHeaderCell(new Cell().add(new Paragraph("Concepto")).setBold().setFontSize(9));
-        table.addHeaderCell(new Cell().add(new Paragraph("Estado")).setBold().setFontSize(9));
-        table.addHeaderCell(new Cell().add(new Paragraph("Importe")).setBold().setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
-        table.addHeaderCell(new Cell().add(new Paragraph("F.Registro")).setBold().setFontSize(9));
-        table.addHeaderCell(new Cell().add(new Paragraph("Periodo")).setBold().setFontSize(9));
+        String[] headers = {"F.Estado", "Concepto", "Estado", "Importe", "F.Registro", "Periodo"};
+        for (String h : headers) {
+            table.addCell(new PdfPCell(new Phrase(h, fontBold)));
+        }
 
         if (datosDeuda.getDetalles().isEmpty()) {
-            table.addCell(new Cell(1, 6)
-                    .add(new Paragraph("El alumno no registra deudas pendientes en su cuenta corriente."))
-                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
+            PdfPCell empty = new PdfPCell(new Phrase("El alumno no registra deudas pendientes.", fontNormal));
+            empty.setColspan(6);
+            empty.setHorizontalAlignment(Element.ALIGN_CENTER);
+            table.addCell(empty);
         } else {
             for (LineaDetalleDto item : datosDeuda.getDetalles()) {
-                String fEstado = item.getFechaEstado() != null ? item.getFechaEstado().format(dtfTablas) : "";
-                String fRegistro = item.getFechaRegistro() != null ? item.getFechaRegistro().format(dtfTablas) : "";
+                table.addCell(new Phrase(item.getFechaEstado() != null ? item.getFechaEstado().format(dtfTablas) : "", fontNormal));
+                table.addCell(new Phrase(item.getConcepto(), fontNormal));
+                table.addCell(new Phrase(item.getEstado(), fontNormal));
 
-                table.addCell(new Cell().add(new Paragraph(fEstado)).setFontSize(8));
-                table.addCell(new Cell().add(new Paragraph(item.getConcepto() != null ? item.getConcepto() : "")).setFontSize(8));
-                table.addCell(new Cell().add(new Paragraph(item.getEstado() != null ? item.getEstado() : "")).setFontSize(8));
-                table.addCell(new Cell().add(new Paragraph(item.getImporte() != null ? formatoMoneda.format(item.getImporte()) : "$ 0,00")).setFontSize(8).setTextAlignment(TextAlignment.RIGHT));
-                table.addCell(new Cell().add(new Paragraph(fRegistro)).setFontSize(8));
-                table.addCell(new Cell().add(new Paragraph(item.getPeriodo() != null ? item.getPeriodo() : "")).setFontSize(8));
+                PdfPCell imp = new PdfPCell(new Phrase(item.getImporte() != null ? formatoMoneda.format(item.getImporte()) : "$ 0,00", fontNormal));
+                imp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                table.addCell(imp);
+
+                table.addCell(new Phrase(item.getFechaRegistro() != null ? item.getFechaRegistro().format(dtfTablas) : "", fontNormal));
+                table.addCell(new Phrase(item.getPeriodo(), fontNormal));
             }
         }
         document.add(table);
 
-        // --- TOTAL EN BIGDECIMAL ---
-        String totalStr = formatoMoneda.format(datosDeuda.getTotalDeuda());
-        document.add(new Paragraph("\nTOTAL DEUDA: " + totalStr)
-                .setBold().setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(11).setBorderTop(new SolidBorder(1)));
+        // TOTAL
+        Paragraph total = new Paragraph("TOTAL DEUDA: " + formatoMoneda.format(datosDeuda.getTotalDeuda()), fontBold);
+        total.setAlignment(Element.ALIGN_RIGHT);
+        document.add(total);
 
         document.close();
         return out.toByteArray();
+    }
+
+    // Método auxiliar para simplificar celdas sin bordes
+    private void addCell(PdfPTable table, String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBorder(Rectangle.NO_BORDER);
+        table.addCell(cell);
     }
 
     private LocalDateTime obtenerFechaCreacion(Factura factura) {
@@ -317,85 +316,91 @@ public class FacturaService {
     }
 
     public byte[] generarPdfRecaudacion(LocalDate fecha) {
-        // 1. Obtenemos los datos procesados del DTO
         ReporteRecaudacionDto datos = obtenerRecaudacionEstructurada(fecha);
-
-        // Configuramos el formato moneda para Argentina
         NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
-        // ✅ Formato solo fecha
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4);
+        // Constructor de OpenPDF: Document(PageSize, marginLeft, marginRight, marginTop, marginBottom)
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
-        // MARGEN: Ajustado con 40 a la izquierda para el encarpetado
-        document.setMargins(20, 20, 20, 40);
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
 
-        // --- ENCABEZADO ---
+            // FUENTES
+            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
 
-        // CORRECCIÓN: Ahora imprime la fecha real de generación
-        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(8)
-                .setMarginBottom(0));
+            // ENCABEZADO
+            Paragraph pFecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
+            pFecha.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pFecha);
 
-        document.add(new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setBold()
-                .setMarginTop(0));
+            Paragraph pTitulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fontTitulo);
+            pTitulo.setAlignment(Element.ALIGN_CENTER);
+            document.add(pTitulo);
 
-        document.add(new Paragraph("Recaudación Diaria")
-                .setTextAlignment(TextAlignment.CENTER));
+            Paragraph pSub = new Paragraph("Recaudación Diaria", fontNormal);
+            pSub.setAlignment(Element.ALIGN_CENTER);
+            document.add(pSub);
 
-        // Fecha de los pagos (la que se filtró)
-        document.add(new Paragraph("Fecha Pago: " + fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
-                .setTextAlignment(TextAlignment.RIGHT));
+            Paragraph pFechaPago = new Paragraph("Fecha Pago: " + fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), fontBold);
+            pFechaPago.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pFechaPago);
+            document.add(Chunk.NEWLINE);
 
-        // --- CONTENIDO ---
+            // CONTENIDO
+            for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
+                document.add(new Paragraph(est.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11)));
 
-        for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
-            document.add(new Paragraph("\n" + est.getNombre()).setBold().setUnderline().setFontSize(11));
+                for (RecaudacionMedioDto medio : est.getMedios()) {
+                    document.add(new Paragraph(medio.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9)));
 
-            for (RecaudacionMedioDto medio : est.getMedios()) {
-                document.add(new Paragraph(medio.getNombre()).setItalic().setMarginLeft(10));
+                    PdfPTable table = new PdfPTable(5);
+                    table.setWidthPercentage(100);
+                    table.setSpacingBefore(5f);
 
-                Table table = new Table(5).useAllAvailableWidth();
-                // Definimos celdas de encabezado con estilo consistente
-                table.addHeaderCell(new Cell().add(new Paragraph("Factura")).setBold().setFontSize(9));
-                table.addHeaderCell(new Cell().add(new Paragraph("Período")).setBold().setFontSize(9));
-                table.addHeaderCell(new Cell().add(new Paragraph("Legajo")).setBold().setFontSize(9));
-                table.addHeaderCell(new Cell().add(new Paragraph("Apellido, Nombre")).setBold().setFontSize(9));
-                table.addHeaderCell(new Cell().add(new Paragraph("Pagado")).setBold().setFontSize(9));
+                    // Encabezados
+                    String[] headers = {"Factura", "Período", "Legajo", "Apellido, Nombre", "Pagado"};
+                    for (String h : headers) {
+                        PdfPCell cell = new PdfPCell(new Phrase(h, fontBold));
+                        table.addCell(cell);
+                    }
 
-                for (RecaudacionDetalleDto item : medio.getItems()) {
-                    table.addCell(new Cell().add(new Paragraph(item.getFactura().toString())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(item.getPeriodo())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(item.getLegajo().toString())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(item.getNombre())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(formatoMoneda.format(item.getPagado())))
-                            .setFontSize(8).setTextAlignment(TextAlignment.RIGHT));
+                    // Datos
+                    for (RecaudacionDetalleDto item : medio.getItems()) {
+                        table.addCell(new Phrase(item.getFactura().toString(), fontNormal));
+                        table.addCell(new Phrase(item.getPeriodo(), fontNormal));
+                        table.addCell(new Phrase(item.getLegajo().toString(), fontNormal));
+                        table.addCell(new Phrase(item.getNombre(), fontNormal));
+
+                        PdfPCell cellImp = new PdfPCell(new Phrase(formatoMoneda.format(item.getPagado()), fontNormal));
+                        cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                        table.addCell(cellImp);
+                    }
+                    document.add(table);
+
+                    // Subtotal
+                    Paragraph subtotal = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() +
+                            " - Subtotal: " + formatoMoneda.format(medio.getSubtotal()), fontBold);
+                    subtotal.setAlignment(Element.ALIGN_RIGHT);
+                    document.add(subtotal);
+                    document.add(Chunk.NEWLINE);
                 }
-                document.add(table);
-
-                String subtotalStr = formatoMoneda.format(medio.getSubtotal());
-                document.add(new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() +
-                        " - Subtotal: " + subtotalStr)
-                        .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(9));
             }
+
+            // TOTAL GENERAL
+            Paragraph totalGral = new Paragraph("TOTAL GENERAL: " + formatoMoneda.format(datos.getGranTotal()), fontTitulo);
+            totalGral.setAlignment(Element.ALIGN_RIGHT);
+            document.add(totalGral);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF", e);
         }
 
-        // --- TOTALES ---
-
-        String totalGralStr = formatoMoneda.format(datos.getGranTotal());
-        document.add(new Paragraph("\nTOTAL GENERAL: " + totalGralStr)
-                .setBold()
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(11)
-                .setBorderTop(new SolidBorder(1)));
-
-        document.close();
         return out.toByteArray();
     }
 
@@ -477,63 +482,87 @@ public class FacturaService {
         ReporteFacturaPeriodoDto datos = obtenerFacturasPeriodoEstructurada(descripcion);
 
         NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
-        // ✅ Formato con hora para la fecha de generación
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4);
+        // Constructor de OpenPDF: Document(PageSize, marginLeft, marginRight, marginTop, marginBottom)
+        // El margen izquierdo (40) se mantiene para el encarpetado
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
-        // ✅ Margen izquierdo aumentado a 40 para encarpetado
-        document.setMargins(20, 20, 20, 40);
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
 
-        // --- ENCABEZADO ---
+            // FUENTES
+            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Font fontEncabezado = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
 
-        document.add(new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio")
-                .setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(12).setMarginBottom(2));
+            // --- ENCABEZADO ---
+            Paragraph pTitulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fontEncabezado);
+            pTitulo.setAlignment(Element.ALIGN_CENTER);
+            document.add(pTitulo);
 
-        // ✅ CORRECCIÓN: Se usa LocalDateTime.now() para imprimir la fecha real de creación
-        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT).setFontSize(9).setMarginBottom(2));
+            Paragraph pFecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
+            pFecha.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pFecha);
 
-        document.add(new Paragraph("Facturas por Período")
-                .setTextAlignment(TextAlignment.CENTER).setFontSize(14).setBold().setMarginBottom(2));
+            Paragraph pReporte = new Paragraph("Facturas por Período", fontTitulo);
+            pReporte.setAlignment(Element.ALIGN_CENTER);
+            document.add(pReporte);
 
-        document.add(new Paragraph("Período: " + datos.getDescripcionPeriodo())
-                .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(10).setMarginBottom(10));
+            Paragraph pPeriodo = new Paragraph("Período: " + datos.getDescripcionPeriodo(), fontBold);
+            pPeriodo.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pPeriodo);
+            document.add(Chunk.NEWLINE);
 
-        // --- LISTADO POR ESTABLECIMIENTOS ---
-        for (FacturaPeriodoEstablecimientoDto est : datos.getEstablecimientos()) {
-            document.add(new Paragraph(est.getNombre())
-                    .setBold().setUnderline().setFontSize(10).setMarginBottom(5));
+            // --- LISTADO POR ESTABLECIMIENTOS ---
+            for (FacturaPeriodoEstablecimientoDto est : datos.getEstablecimientos()) {
+                Paragraph pEst = new Paragraph(est.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10));
+                pEst.setSpacingBefore(5f);
+                document.add(pEst);
 
-            Table table = new Table(new float[]{1.5f, 2.5f, 1.5f, 5f, 2.5f}).useAllAvailableWidth();
+                // Tabla con 5 columnas
+                PdfPTable table = new PdfPTable(new float[]{1.5f, 2.5f, 1.5f, 5f, 2.5f});
+                table.setWidthPercentage(100);
+                table.setSpacingBefore(5f);
 
-            // Header de la tabla
-            table.addHeaderCell(new Cell().add(new Paragraph("Factura").setBold().setFontSize(9)).setBorder(Border.NO_BORDER));
-            table.addHeaderCell(new Cell().add(new Paragraph("Período").setBold().setFontSize(9)).setBorder(Border.NO_BORDER));
-            table.addHeaderCell(new Cell().add(new Paragraph("Legajo").setBold().setFontSize(9)).setBorder(Border.NO_BORDER));
-            table.addHeaderCell(new Cell().add(new Paragraph("Apellido, Nombre").setBold().setFontSize(9)).setBorder(Border.NO_BORDER));
-            table.addHeaderCell(new Cell().add(new Paragraph("Facturado").setBold().setFontSize(9)).setTextAlignment(TextAlignment.RIGHT).setBorder(Border.NO_BORDER));
+                // Encabezados
+                String[] headers = {"Factura", "Período", "Legajo", "Apellido, Nombre", "Facturado"};
+                for (String h : headers) {
+                    PdfPCell cell = new PdfPCell(new Phrase(h, fontBold));
+                    cell.setBorder(PdfPCell.NO_BORDER);
+                    table.addCell(cell);
+                }
 
-            for (RecaudacionDetalleDto item : est.getItems()) {
-                table.addCell(new Cell().add(new Paragraph(item.getFactura().toString()).setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addCell(new Cell().add(new Paragraph(item.getPeriodo()).setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addCell(new Cell().add(new Paragraph(item.getLegajo().toString()).setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addCell(new Cell().add(new Paragraph(item.getNombre()).setFontSize(8)).setBorder(Border.NO_BORDER));
-                // En este reporte se usa el importe facturado (item.getPagado() representa el importe de la factura aquí)
-                table.addCell(new Cell().add(new Paragraph(formatoMoneda.format(item.getPagado())).setFontSize(8)).setTextAlignment(TextAlignment.RIGHT).setBorder(Border.NO_BORDER));
+                // Datos
+                for (RecaudacionDetalleDto item : est.getItems()) {
+                    table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), fontNormal)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), fontNormal)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), fontNormal)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getNombre(), fontNormal)) {{ setBorder(PdfPCell.NO_BORDER); }});
+
+                    PdfPCell cellImp = new PdfPCell(new Phrase(formatoMoneda.format(item.getPagado()), fontNormal));
+                    cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    cellImp.setBorder(PdfPCell.NO_BORDER);
+                    table.addCell(cellImp);
+                }
+                document.add(table);
+
+                // Subtotal
+                Paragraph subtotal = new Paragraph("Cantidad de Facturas: " + est.getCantidadFacturas() +
+                        " - Total: " + formatoMoneda.format(est.getTotalEstablecimiento()), fontBold);
+                subtotal.setAlignment(Element.ALIGN_RIGHT);
+                subtotal.setSpacingBefore(5f);
+                document.add(subtotal);
             }
-            document.add(table);
 
-            // Subtotal del establecimiento
-            String totalEstStr = formatoMoneda.format(est.getTotalEstablecimiento());
-            document.add(new Paragraph("Cantidad de Facturas: " + est.getCantidadFacturas() + " - Total: " + totalEstStr)
-                    .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(9).setMarginTop(2).setMarginBottom(10));
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de facturas por periodo", e);
         }
 
-        document.close();
         return out.toByteArray();
     }
     public ReporteRecaudacionDto obtenerRecaudacionPeriodoCompleta(String periodo) {
@@ -616,78 +645,103 @@ public class FacturaService {
     public byte[] generarPdfRecaudacionPeriodoFinal(String periodo) {
         ReporteRecaudacionDto datos = obtenerRecaudacionPeriodoCompleta(periodo);
 
-        // Configuración de formato para Argentina y fechas
         NumberFormat fmt = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        // ✅ Se agrega formateador con hora para la generación
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfDocument pdf = new PdfDocument(new PdfWriter(out));
-        Document doc = new Document(pdf, PageSize.A4);
+        Document doc = new Document(PageSize.A4, 40, 20, 20, 20);
 
-        // ✅ Margen izquierdo de 40 para ganchos/carpetas
-        doc.setMargins(20, 20, 20, 40);
+        try {
+            PdfWriter.getInstance(doc, out);
+            doc.open();
 
-        // Encabezado
-        // ✅ CORRECCIÓN: Se usa LocalDateTime.now().format()
-        doc.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(8)
-                .setMarginBottom(0));
-        doc.add(new Paragraph("Recaudación por Período")
-                .setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(14));
-        doc.add(new Paragraph("Período: " + periodo)
-                .setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
+            // FUENTES
+            Font font7 = FontFactory.getFont(FontFactory.HELVETICA, 7);
+            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
+            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font font9 = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font font10B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
 
-        for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
-            doc.add(new Paragraph("\n" + est.getNombre()).setBold().setUnderline().setFontSize(10));
+            // ENCABEZADO
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            doc.add(pGen);
 
-            for (RecaudacionMedioDto medio : est.getMedios()) {
-                doc.add(new Paragraph(medio.getNombre()).setItalic().setFontSize(9).setMarginLeft(20));
+            Paragraph pTit = new Paragraph("Recaudación por Período", font14B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            doc.add(pTit);
 
-                // Tabla con 6 columnas
-                Table table = new Table(new float[]{1.2f, 2f, 1.2f, 4.5f, 1.8f, 2.3f}).useAllAvailableWidth();
+            Paragraph pPer = new Paragraph("Período: " + periodo, FontFactory.getFont(FontFactory.HELVETICA, 10));
+            pPer.setAlignment(Element.ALIGN_RIGHT);
+            doc.add(pPer);
 
-                // Encabezados sin bordes
-                table.addHeaderCell(new Cell().add(new Paragraph("Factura").setBold().setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addHeaderCell(new Cell().add(new Paragraph("Período").setBold().setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addHeaderCell(new Cell().add(new Paragraph("Legajo").setBold().setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addHeaderCell(new Cell().add(new Paragraph("Apellido, Nombre").setBold().setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addHeaderCell(new Cell().add(new Paragraph("Fecha").setBold().setFontSize(8)).setBorder(Border.NO_BORDER));
-                table.addHeaderCell(new Cell().add(new Paragraph("Pagado").setBold().setFontSize(8)).setTextAlignment(TextAlignment.RIGHT).setBorder(Border.NO_BORDER));
+            // LISTADO
+            for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
+                doc.add(new Paragraph("\n" + est.getNombre(), font10B));
 
-                for (RecaudacionDetalleDto item : medio.getItems()) {
-                    table.addCell(new Cell().add(new Paragraph(item.getFactura().toString()).setFontSize(7)).setBorder(Border.NO_BORDER));
-                    table.addCell(new Cell().add(new Paragraph(item.getPeriodo()).setFontSize(7)).setBorder(Border.NO_BORDER));
-                    table.addCell(new Cell().add(new Paragraph(item.getLegajo().toString()).setFontSize(7)).setBorder(Border.NO_BORDER));
-                    table.addCell(new Cell().add(new Paragraph(item.getNombre()).setFontSize(7)).setBorder(Border.NO_BORDER));
+                for (RecaudacionMedioDto medio : est.getMedios()) {
+                    Paragraph pMedio = new Paragraph(medio.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9));
+                    pMedio.setIndentationLeft(20);
+                    doc.add(pMedio);
 
-                    String fechaFormateada = item.getFecha() != null ? item.getFecha().format(dtf) : "";
-                    table.addCell(new Cell().add(new Paragraph(fechaFormateada).setFontSize(7)).setBorder(Border.NO_BORDER));
+                    PdfPTable table = new PdfPTable(new float[]{1.2f, 2f, 1.2f, 4.5f, 1.8f, 2.3f});
+                    table.setWidthPercentage(100);
+                    table.setSpacingBefore(5f);
 
-                    table.addCell(new Cell().add(new Paragraph(fmt.format(item.getPagado())).setFontSize(7)).setTextAlignment(TextAlignment.RIGHT).setBorder(Border.NO_BORDER));
+                    // Encabezados
+                    String[] headers = {"Factura", "Período", "Legajo", "Apellido, Nombre", "Fecha", "Pagado"};
+                    for (String h : headers) {
+                        PdfPCell cell = new PdfPCell(new Phrase(h, font8B));
+                        cell.setBorder(PdfPCell.NO_BORDER);
+                        table.addCell(cell);
+                    }
+
+                    // Datos
+                    for (RecaudacionDetalleDto item : medio.getItems()) {
+                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFecha() != null ? item.getFecha().format(dtf) : "", font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+
+                        PdfPCell cellImp = new PdfPCell(new Phrase(fmt.format(item.getPagado()), font7));
+                        cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                        cellImp.setBorder(PdfPCell.NO_BORDER);
+                        table.addCell(cellImp);
+                    }
+                    doc.add(table);
+
+                    Paragraph pSub = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmt.format(medio.getSubtotal()), font9B);
+                    pSub.setAlignment(Element.ALIGN_RIGHT);
+                    doc.add(pSub);
                 }
-                doc.add(table);
 
-                doc.add(new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmt.format(medio.getSubtotal()))
-                        .setTextAlignment(TextAlignment.RIGHT).setFontSize(9).setBold());
+                int pagosEst = est.getMedios().stream().mapToInt(RecaudacionMedioDto::getCantidadPagos).sum();
+                Paragraph pEstTotal = new Paragraph("Cantidad de Pagos: " + pagosEst + " - " + fmt.format(est.getTotalEstablecimiento()), FontFactory.getFont(FontFactory.HELVETICA_BOLDOBLIQUE, 9));
+                pEstTotal.setAlignment(Element.ALIGN_RIGHT);
+                pEstTotal.setSpacingAfter(10f);
+                doc.add(pEstTotal);
             }
 
-            int pagosEst = est.getMedios().stream().mapToInt(RecaudacionMedioDto::getCantidadPagos).sum();
-            doc.add(new Paragraph("Cantidad de Pagos: " + pagosEst + " - " + fmt.format(est.getTotalEstablecimiento()))
-                    .setTextAlignment(TextAlignment.RIGHT).setFontSize(9).setBold().setItalic().setMarginBottom(10));
+            // PÁGINA FINAL
+            doc.newPage();
+            doc.add(new Paragraph("Recaudación por Período", font14B));
+            doc.add(new Paragraph("Período: " + periodo, FontFactory.getFont(FontFactory.HELVETICA, 10)));
+
+            Paragraph pFinal = new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmt.format(datos.getGranTotal()), font11B);
+            pFinal.setAlignment(Element.ALIGN_RIGHT);
+            // OpenPDF no tiene setBorderTop directo en Paragraph, dibujamos una línea simple
+            doc.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+            doc.add(pFinal);
+
+            doc.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar PDF de recaudación final", e);
         }
-
-        // Página Final: Gran Total
-        doc.add(new AreaBreak());
-        doc.add(new Paragraph("Recaudación por Período").setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(14));
-        doc.add(new Paragraph("Período: " + periodo).setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
-
-        doc.add(new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmt.format(datos.getGranTotal()))
-                .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(11).setBorderTop(new SolidBorder(1)));
-
-        doc.close();
         return out.toByteArray();
     }
 
@@ -764,78 +818,101 @@ public class FacturaService {
     }
 
     public byte[] generarPdfRecaudacionPorFechas(LocalDate desde, LocalDate hasta) {
-        // 1. Obtenemos los datos estructurados usando el método que ya tenemos
         ReporteRecaudacionDto datos = obtenerRecaudacionPorFechas(desde, hasta);
 
-        // 2. Formateadores
-        DateTimeFormatter fmtFecha = DateTimeFormatter.ofPattern("d/M/yyyy");
+        // Formateadores
+        DateTimeFormatter fmtFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
         NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4);
-        document.setMargins(20, 20, 20, 40);
+        // Documento con margen izquierdo de 40 para encuadernación
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
-        // CABECERA
-        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(8)
-                .setMarginBottom(0));
-        document.add(new Paragraph("Recaudación por Fechas")
-                .setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(14));
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
 
-        document.add(new Paragraph("Fechas: " + desde.format(fmtFecha) + " - " + hasta.format(fmtFecha))
-                .setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
+            // Fuentes
+            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
+            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
 
-        // ITERACIÓN POR ESTABLECIMIENTO
-        for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
-            document.add(new Paragraph("\n" + est.getNombre())
-                    .setBold().setUnderline().setFontSize(11));
+            // CABECERA
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pGen);
 
-            // ITERACIÓN POR MEDIO DE PAGO
-            for (RecaudacionMedioDto medio : est.getMedios()) {
-                document.add(new Paragraph(medio.getNombre())
-                        .setBold().setFontSize(9).setMarginLeft(20));
+            Paragraph pTit = new Paragraph("Recaudación por Fechas", font14B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            document.add(pTit);
 
-                // TABLA DE DETALLE
-                float[] columnWidths = {2, 2, 2, 5, 2, 2}; // Ajustado para 6 columnas
-                Table table = new Table(columnWidths).useAllAvailableWidth();
+            Paragraph pFechas = new Paragraph("Fechas: " + desde.format(fmtFecha) + " - " + hasta.format(fmtFecha), FontFactory.getFont(FontFactory.HELVETICA, 10));
+            pFechas.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pFechas);
+            document.add(Chunk.NEWLINE);
 
-                table.addHeaderCell(new Cell().add(new Paragraph("Factura")).setFontSize(8).setBold());
-                table.addHeaderCell(new Cell().add(new Paragraph("Período")).setFontSize(8).setBold());
-                table.addHeaderCell(new Cell().add(new Paragraph("Legajo")).setFontSize(8).setBold());
-                table.addHeaderCell(new Cell().add(new Paragraph("Apellido, Nombre")).setFontSize(8).setBold());
-                table.addHeaderCell(new Cell().add(new Paragraph("Fecha")).setFontSize(8).setBold());
-                table.addHeaderCell(new Cell().add(new Paragraph("Pagado")).setFontSize(8).setBold());
+            // ITERACIÓN POR ESTABLECIMIENTO
+            for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
+                document.add(new Paragraph(est.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_BOLDOBLIQUE, 11)));
 
-                for (RecaudacionDetalleDto item : medio.getItems()) {
-                    table.addCell(new Cell().add(new Paragraph(item.getFactura().toString())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(item.getPeriodo())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(item.getLegajo().toString())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(item.getNombre())).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(item.getFecha().format(fmtFecha))).setFontSize(8));
-                    table.addCell(new Cell().add(new Paragraph(fmtMoneda.format(item.getPagado()))).setFontSize(8).setTextAlignment(TextAlignment.RIGHT));
+                // ITERACIÓN POR MEDIO DE PAGO
+                for (RecaudacionMedioDto medio : est.getMedios()) {
+                    Paragraph pMedio = new Paragraph(medio.getNombre(), font9B);
+                    pMedio.setIndentationLeft(20);
+                    document.add(pMedio);
+
+                    // TABLA DE DETALLE (6 columnas)
+                    PdfPTable table = new PdfPTable(new float[]{2, 2, 2, 5, 2, 2});
+                    table.setWidthPercentage(100);
+                    table.setSpacingBefore(5f);
+
+                    // Cabeceras
+                    String[] headers = {"Factura", "Período", "Legajo", "Apellido, Nombre", "Fecha", "Pagado"};
+                    for (String h : headers) {
+                        table.addCell(new PdfPCell(new Phrase(h, font8B)) {{ setBorder(PdfPCell.BOTTOM); }});
+                    }
+
+                    // Filas
+                    for (RecaudacionDetalleDto item : medio.getItems()) {
+                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFecha().format(fmtFecha), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+
+                        PdfPCell cellImp = new PdfPCell(new Phrase(fmtMoneda.format(item.getPagado()), font8));
+                        cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                        cellImp.setBorder(PdfPCell.NO_BORDER);
+                        table.addCell(cellImp);
+                    }
+                    document.add(table);
+
+                    Paragraph pSub = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmtMoneda.format(medio.getSubtotal()), font9B);
+                    pSub.setAlignment(Element.ALIGN_RIGHT);
+                    document.add(pSub);
                 }
-                document.add(table);
 
-                // SUBTOTAL DEL MEDIO (Ej: Cantidad de Pagos: 22 - $ 400.698,00)
-                document.add(new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmtMoneda.format(medio.getSubtotal()))
-                        .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(9));
+                int totalPagosEst = est.getMedios().stream().mapToInt(RecaudacionMedioDto::getCantidadPagos).sum();
+                Paragraph pEstTotal = new Paragraph("Cantidad de Pagos: " + totalPagosEst + " - " + fmtMoneda.format(est.getTotalEstablecimiento()), FontFactory.getFont(FontFactory.HELVETICA_BOLDOBLIQUE, 9));
+                pEstTotal.setAlignment(Element.ALIGN_RIGHT);
+                pEstTotal.setSpacingAfter(10f);
+                document.add(pEstTotal);
             }
 
-            // TOTAL DEL ESTABLECIMIENTO
-            int totalPagosEst = est.getMedios().stream().mapToInt(RecaudacionMedioDto::getCantidadPagos).sum();
-            document.add(new Paragraph("Cantidad de Pagos: " + totalPagosEst + " - " + fmtMoneda.format(est.getTotalEstablecimiento()))
-                    .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(9).setItalic());
+            // PIE DE REPORTE (Gran Total)
+            document.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+            Paragraph pFinal = new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmtMoneda.format(datos.getGranTotal()), font11B);
+            pFinal.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pFinal);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de recaudación por fechas", e);
         }
 
-        // PIE DE REPORTE: EL TOTAL DE TODOS LOS ESTABLECIMIENTOS (Imagen 6)
-        document.add(new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmtMoneda.format(datos.getGranTotal()))
-                .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(11).setBorderTop(new SolidBorder(1)));
-
-        document.close();
         return out.toByteArray();
     }
 }

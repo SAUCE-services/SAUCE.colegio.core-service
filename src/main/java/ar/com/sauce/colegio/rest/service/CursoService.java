@@ -8,16 +8,10 @@ import ar.com.sauce.colegio.rest.model.Curso;
 import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
 import ar.com.sauce.colegio.rest.repository.ICursoRepository;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaCursoProjection;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.borders.Border;
-import com.itextpdf.layout.borders.SolidBorder;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.properties.TextAlignment;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -152,75 +146,101 @@ public class CursoService {
         DateTimeFormatter dtfTablas = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4);
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
-        document.setMargins(20, 20, 20, 40);
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
 
-        // --- ENCABEZADO ---
-        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT).setFontSize(8));
+            // FUENTES
+            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
+            Font font7_5 = FontFactory.getFont(FontFactory.HELVETICA, 7.5f);
+            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font font9 = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font11 = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font13B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
 
-        document.add(new Paragraph(datos.getNombreEstablecimiento())
-                .setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(11));
+            // --- ENCABEZADO ---
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pGen);
 
-        document.add(new Paragraph("Deuda por Curso")
-                .setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(13));
+            Paragraph pEst = new Paragraph(datos.getNombreEstablecimiento(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11));
+            pEst.setAlignment(Element.ALIGN_CENTER);
+            document.add(pEst);
 
-        // --- CABECERA INFORMATIVA ---
-        Table headerTable = new Table(new float[]{1.5f, 4.5f, 1f, 3f}).useAllAvailableWidth();
-        headerTable.setMarginBottom(15).setMarginTop(10);
+            Paragraph pTit = new Paragraph("Deuda por Curso", font13B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            document.add(pTit);
+            document.add(Chunk.NEWLINE);
 
-        headerTable.addCell(new Cell().add(new Paragraph("Curso:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(datos.getCursoNombre().toUpperCase())).setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph("Ciclo:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(datos.getNombreCiclo())).setFontSize(9).setBorder(Border.NO_BORDER));
+            // --- CABECERA INFORMATIVA ---
+            PdfPTable headerTable = new PdfPTable(new float[]{1.5f, 4.5f, 1f, 3f});
+            headerTable.setWidthPercentage(100);
+            headerTable.setSpacingAfter(15f);
 
-        headerTable.addCell(new Cell().add(new Paragraph("Docente:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(datos.getNombreMaestro())).setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph("Turno:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(datos.getNombreTurno())).setFontSize(9).setBorder(Border.NO_BORDER));
+            addInfoCell(headerTable, "Curso:", font9B);
+            addInfoCell(headerTable, datos.getCursoNombre().toUpperCase(), font9);
+            addInfoCell(headerTable, "Ciclo:", font9B);
+            addInfoCell(headerTable, datos.getNombreCiclo(), font9);
 
-        document.add(headerTable);
+            addInfoCell(headerTable, "Docente:", font9B);
+            addInfoCell(headerTable, datos.getNombreMaestro(), font9);
+            addInfoCell(headerTable, "Turno:", font9B);
+            addInfoCell(headerTable, datos.getNombreTurno(), font9);
+            document.add(headerTable);
 
-        // --- TABLA DE COMPROBANTES ---
-        float[] columnWidths = {1.2f, 1.5f, 3.5f, 1.3f, 2f, 1.5f, 1.8f};
-        Table table = new Table(columnWidths).useAllAvailableWidth();
+            // --- TABLA DE COMPROBANTES ---
+            PdfPTable table = new PdfPTable(new float[]{1.2f, 1.5f, 3.5f, 1.3f, 2f, 1.5f, 1.8f});
+            table.setWidthPercentage(100);
 
-        table.addHeaderCell(new Cell().add(new Paragraph("Legajo")).setBold().setFontSize(8));
-        table.addHeaderCell(new Cell().add(new Paragraph("DNI")).setBold().setFontSize(8));
-        table.addHeaderCell(new Cell().add(new Paragraph("Alumno")).setBold().setFontSize(8));
-        table.addHeaderCell(new Cell().add(new Paragraph("Factura")).setBold().setFontSize(8));
-        table.addHeaderCell(new Cell().add(new Paragraph("Período")).setBold().setFontSize(8));
-        table.addHeaderCell(new Cell().add(new Paragraph("Venc.")).setBold().setFontSize(8));
-        table.addHeaderCell(new Cell().add(new Paragraph("Importe")).setBold().setFontSize(8).setTextAlignment(TextAlignment.RIGHT));
-
-        if (datos.getDetalles().isEmpty()) {
-            table.addCell(new Cell(1, 7)
-                    .add(new Paragraph("No se registran comprobantes con deudas pendientes en este curso."))
-                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
-        } else {
-            for (DeudaCursoDetalleDto item : datos.getDetalles()) {
-                String fVenc = item.getVencimiento() != null ? item.getVencimiento().format(dtfTablas) : "";
-
-                table.addCell(new Cell().add(new Paragraph(item.getLegajo().toString())).setFontSize(7.5f));
-                table.addCell(new Cell().add(new Paragraph(item.getDni() != null ? item.getDni() : "")).setFontSize(7.5f));
-                table.addCell(new Cell().add(new Paragraph(item.getAlumno())).setFontSize(7.5f));
-                table.addCell(new Cell().add(new Paragraph(item.getFactura().toString())).setFontSize(7.5f));
-                table.addCell(new Cell().add(new Paragraph(item.getPeriodo())).setFontSize(7.5f));
-                table.addCell(new Cell().add(new Paragraph(fVenc)).setFontSize(7.5f));
-                table.addCell(new Cell().add(new Paragraph(formatoMoneda.format(item.getImporte())))
-                        .setFontSize(7.5f).setTextAlignment(TextAlignment.RIGHT));
+            String[] headers = {"Legajo", "DNI", "Alumno", "Factura", "Período", "Venc.", "Importe"};
+            for (String h : headers) {
+                PdfPCell cell = new PdfPCell(new Phrase(h, font8B));
+                table.addCell(cell);
             }
+
+            if (datos.getDetalles().isEmpty()) {
+                PdfPCell emptyCell = new PdfPCell(new Phrase("No se registran comprobantes con deudas pendientes en este curso.", font8));
+                emptyCell.setColspan(7);
+                emptyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(emptyCell);
+            } else {
+                for (DeudaCursoDetalleDto item : datos.getDetalles()) {
+                    table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), font7_5)));
+                    table.addCell(new PdfPCell(new Phrase(item.getDni() != null ? item.getDni() : "", font7_5)));
+                    table.addCell(new PdfPCell(new Phrase(item.getAlumno(), font7_5)));
+                    table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), font7_5)));
+                    table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), font7_5)));
+                    table.addCell(new PdfPCell(new Phrase(item.getVencimiento() != null ? item.getVencimiento().format(dtfTablas) : "", font7_5)));
+
+                    PdfPCell cellImp = new PdfPCell(new Phrase(formatoMoneda.format(item.getImporte()), font7_5));
+                    cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    table.addCell(cellImp);
+                }
+            }
+            document.add(table);
+
+            // --- TOTAL GENERAL ---
+            document.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+            Paragraph pTotal = new Paragraph("TOTAL DEUDA CURSO: " + formatoMoneda.format(datos.getTotalDeudaCurso()), font11B);
+            pTotal.setAlignment(Element.ALIGN_RIGHT);
+            pTotal.setSpacingBefore(10f);
+            document.add(pTotal);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de deuda por curso", e);
         }
-        document.add(table);
-
-        // --- TOTAL GENERAL ---
-        document.add(new Paragraph("\nTOTAL DEUDA CURSO: " + formatoMoneda.format(datos.getTotalDeudaCurso()))
-                .setBold().setTextAlignment(TextAlignment.RIGHT).setFontSize(11).setBorderTop(new SolidBorder(1)));
-
-        document.close();
         return out.toByteArray();
+    }
+
+    // Método auxiliar reutilizado
+    private void addInfoCell(PdfPTable table, String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBorder(PdfPCell.NO_BORDER);
+        table.addCell(cell);
     }
 }

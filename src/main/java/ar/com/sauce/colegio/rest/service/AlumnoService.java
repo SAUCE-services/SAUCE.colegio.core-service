@@ -5,17 +5,11 @@ import ar.com.sauce.colegio.rest.dto.AlumnoDto;
 import ar.com.sauce.colegio.rest.dto.CursoDetalleResponseDto;
 import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.borders.Border;
-import com.itextpdf.layout.borders.SolidBorder;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.properties.TextAlignment;
 import jakarta.transaction.Transactional;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -318,79 +312,93 @@ public class AlumnoService {
     }
 
     public byte[] generarPdfAlumnosPorCurso(String cursoNombre) {
-        // 1. Recuperamos el DTO estructurado con toda la metadata del curso y sus alumnos asignados
-       CursoDetalleResponseDto datosCurso = findCursoConAlumnos(cursoNombre);
-
+        CursoDetalleResponseDto datosCurso = findCursoConAlumnos(cursoNombre);
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4);
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
-        // Mantenemos tus márgenes estándar (40 a la izquierda para los ganchos de la carpeta)
-        document.setMargins(20, 20, 20, 40);
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
 
-        // --- ENCABEZADO ---
-        document.add(new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion))
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(8)
-                .setMarginBottom(0));
+            // FUENTES
+            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
+            Font font9 = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font13B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
 
-        document.add(new Paragraph(datosCurso.getNombreEstablecimiento() != null ? datosCurso.getNombreEstablecimiento() : "Unión Vecinal de Servicios Públicos El Sauce - Colegio")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setBold().setMarginTop(0).setFontSize(11));
+            // ENCABEZADO
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pGen);
 
-        document.add(new Paragraph("Alumnos por Curso")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setBold().setFontSize(13));
+            String estName = (datosCurso.getNombreEstablecimiento() != null) ? datosCurso.getNombreEstablecimiento() : "Unión Vecinal de Servicios Públicos El Sauce - Colegio";
+            Paragraph pEst = new Paragraph(estName, font9B);
+            pEst.setAlignment(Element.ALIGN_CENTER);
+            document.add(pEst);
 
-        // --- BLOQUE DE DETALLE DEL CURSO (CABECERA INFORMATIVA) ---
-        Table headerTable = new Table(new float[]{1.5f, 4.5f, 1f, 3f}).useAllAvailableWidth();
-        headerTable.setMarginBottom(15);
-        headerTable.setMarginTop(10);
+            Paragraph pTit = new Paragraph("Alumnos por Curso", font13B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            document.add(pTit);
+            document.add(Chunk.NEWLINE);
 
-        headerTable.addCell(new Cell().add(new Paragraph("Curso:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(cursoNombre.toUpperCase())).setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph("Ciclo:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(datosCurso.getNombreCiclo() != null ? datosCurso.getNombreCiclo() : "")).setFontSize(9).setBorder(Border.NO_BORDER));
+            // TABLA DE CABECERA INFORMATIVA
+            PdfPTable headerTable = new PdfPTable(new float[]{1.5f, 4.5f, 1f, 3f});
+            headerTable.setWidthPercentage(100);
+            headerTable.setSpacingAfter(15f);
 
-        headerTable.addCell(new Cell().add(new Paragraph("Docente:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(datosCurso.getNombreMaestro() != null ? datosCurso.getNombreMaestro() : "Sin Asignar")).setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph("Turno:")).setBold().setFontSize(9).setBorder(Border.NO_BORDER));
-        headerTable.addCell(new Cell().add(new Paragraph(datosCurso.getNombreTurno() != null ? datosCurso.getNombreTurno() : "")).setFontSize(9).setBorder(Border.NO_BORDER));
+            addInfoCell(headerTable, "Curso:", font9B);
+            addInfoCell(headerTable, cursoNombre.toUpperCase(), font9);
+            addInfoCell(headerTable, "Ciclo:", font9B);
+            addInfoCell(headerTable, (datosCurso.getNombreCiclo() != null ? datosCurso.getNombreCiclo() : ""), font9);
 
-        document.add(headerTable);
+            addInfoCell(headerTable, "Docente:", font9B);
+            addInfoCell(headerTable, (datosCurso.getNombreMaestro() != null ? datosCurso.getNombreMaestro() : "Sin Asignar"), font9);
+            addInfoCell(headerTable, "Turno:", font9B);
+            addInfoCell(headerTable, (datosCurso.getNombreTurno() != null ? datosCurso.getNombreTurno() : ""), font9);
 
-        // --- GRILLA DE ALUMNOS ---
-        // Repartimos el ancho: 2f para Legajo y 8f para el nombre completo
-        Table table = new Table(new float[]{2f, 8f}).useAllAvailableWidth();
+            document.add(headerTable);
 
-        // Encabezados de columnas
-        table.addHeaderCell(new Cell().add(new Paragraph("Legajo")).setBold().setFontSize(9));
-        table.addHeaderCell(new Cell().add(new Paragraph("Apellido, Nombre")).setBold().setFontSize(9));
+            // GRILLA DE ALUMNOS
+            PdfPTable table = new PdfPTable(new float[]{2f, 8f});
+            table.setWidthPercentage(100);
 
-        if (datosCurso.getAlumnos() == null || datosCurso.getAlumnos().isEmpty()) {
-            table.addCell(new Cell(1, 2)
-                    .add(new Paragraph("No se encontraron alumnos inscriptos en este curso."))
-                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
-        } else {
-            for (ar.com.sauce.colegio.rest.dto.AlumnoDto alumno : datosCurso.getAlumnos()) {
-                table.addCell(new Cell().add(new Paragraph(alumno.getAlumnoId().toString())).setFontSize(8));
-                table.addCell(new Cell().add(new Paragraph(alumno.getNombreCompleto())).setFontSize(8));
+            table.addCell(new PdfPCell(new Phrase("Legajo", font9B)));
+            table.addCell(new PdfPCell(new Phrase("Apellido, Nombre", font9B)));
+
+            if (datosCurso.getAlumnos() == null || datosCurso.getAlumnos().isEmpty()) {
+                PdfPCell emptyCell = new PdfPCell(new Phrase("No se encontraron alumnos inscriptos en este curso.", font8));
+                emptyCell.setColspan(2);
+                emptyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(emptyCell);
+            } else {
+                for (ar.com.sauce.colegio.rest.dto.AlumnoDto alumno : datosCurso.getAlumnos()) {
+                    table.addCell(new PdfPCell(new Phrase(alumno.getAlumnoId().toString(), font8)));
+                    table.addCell(new PdfPCell(new Phrase(alumno.getNombreCompleto(), font8)));
+                }
             }
+            document.add(table);
+
+            // PIE
+            int totalAlumnos = datosCurso.getAlumnos() != null ? datosCurso.getAlumnos().size() : 0;
+            document.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+            Paragraph pTotal = new Paragraph("Total de Alumnos: " + totalAlumnos, font11B);
+            pTotal.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pTotal);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de alumnos por curso", e);
         }
-        document.add(table);
-
-        // --- PIE DE REPORTE ---
-        int totalAlumnos = datosCurso.getAlumnos() != null ? datosCurso.getAlumnos().size() : 0;
-        document.add(new Paragraph("\nTotal de Alumnos: " + totalAlumnos)
-                .setBold()
-                .setTextAlignment(TextAlignment.RIGHT)
-                .setFontSize(10)
-                .setBorderTop(new SolidBorder(1)));
-
-        document.close();
         return out.toByteArray();
+    }
+
+    // Método auxiliar para limpiar la creación de celdas en la cabecera
+    private void addInfoCell(PdfPTable table, String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBorder(PdfPCell.NO_BORDER);
+        table.addCell(cell);
     }
 }
