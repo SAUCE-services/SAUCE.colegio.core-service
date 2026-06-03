@@ -1,9 +1,6 @@
 package ar.com.sauce.colegio.rest.controller;
 
-import ar.com.sauce.colegio.rest.dto.ConceptoDto;
-import ar.com.sauce.colegio.rest.dto.LineaDetalleDto;
-import ar.com.sauce.colegio.rest.dto.NovedadCargaDto;
-import ar.com.sauce.colegio.rest.dto.NovedadesAlumnoResponseDto;
+import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.model.Concepto;
 import ar.com.sauce.colegio.rest.service.ConceptoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,5 +75,17 @@ public class ConceptoController {
     public ResponseEntity<List<LineaDetalleDto>> agregarNovedadAlumno(@RequestBody NovedadCargaDto dto) {
         List<LineaDetalleDto> grillaActualizada = service.agregarNovedadManualConPeriodoNombre(dto);
         return new ResponseEntity<>(grillaActualizada, HttpStatus.OK);
+    }
+
+    /**
+     * Obtiene las novedades cargadas para todos los alumnos de un curso en un periodo específico.
+     * La URL espera: /concepto/novedades/curso/1484?periodoNombre=MAYO%20-%202026
+     */
+    @GetMapping("/novedades/curso/{cursoId}")
+    public ResponseEntity<?> consultarNovedadesPorCurso(
+            @RequestParam Long cursoId,
+            @RequestParam String periodo,
+            @RequestParam String ciclo) { // 🌟 Nuevo RequestParam en Swagger
+        return ResponseEntity.ok(service.obtenerNovedadesPorCurso(cursoId, periodo, ciclo));
     }
 }

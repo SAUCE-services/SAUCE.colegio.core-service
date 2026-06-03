@@ -3,6 +3,7 @@ package ar.com.sauce.colegio.rest.repository;
 import ar.com.sauce.colegio.rest.model.Concepto;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
+import ar.com.sauce.colegio.rest.repository.projection.NovedadCursoProjection;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -71,4 +72,28 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
             @Param("periodoId") Long periodoId,
             @Param("conceptoId") Long conceptoId,
             @Param("importe") BigDecimal importe);
+
+    @Query(value = "SELECT " +
+            "  ac.id_alumno AS legajo, " +
+            "  CONCAT(a.apellido, ', ', a.nombre) AS alumno, " +
+            "  cur.descripcion AS cursoNombre, " + // 🌟 Enviamos el nombre del curso al Front
+            "  c.descripcion AS concepto, " +
+            "  ac.importe AS importe, " +
+            "  te.descripcion AS estado, " +
+            "  ac.fecha_registro AS fechaRegistro " +
+            "FROM alumnos_conceptos ac " +
+            "INNER JOIN alumnos a ON ac.id_alumno = a.id_alumno " +
+            "INNER JOIN conceptos c ON ac.id_concepto = c.id_concepto " +
+            "INNER JOIN periodos p ON ac.id_periodo = p.id_periodo " +
+            "INNER JOIN tipos_estado te ON ac.id_estado = te.id_estado " +
+            "INNER JOIN cursos cur ON UPPER(TRIM(a.curso)) = UPPER(TRIM(cur.descripcion)) " +
+            "INNER JOIN ciclo cic ON cur.ciclo_id = cic.ciclo_id " + // 🌟 JOIN con ciclos
+            "WHERE cur.id_cursos = :cursoId " +
+            "  AND p.descripcion = :periodoNombre " +
+            "  AND cic.nombre = :cicloNombre", nativeQuery = true) // 🌟 Parámetro de Ciclo
+    List<NovedadCursoProjection> findNovedadesPorCursoYPeriodo(
+            @Param("cursoId") Long cursoId,
+            @Param("periodoNombre") String periodoNombre,
+            @Param("cicloNombre") String cicloNombre
+    );
 }

@@ -19,18 +19,28 @@ public class ApiKeyFilter extends OncePerRequestFilter {
 
     private static final String API_KEY_HEADER = "X-API-KEY";
 
+    // 🌟 FORMA NATIVA DE SPRING: Si da true, el filtro directamente se apaga para estas URLs
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+        return path.contains("/swagger-ui")
+                || path.contains("/v3/api-docs")
+                || path.contains("/swagger-resources");
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        String requestApiKey = request.getHeader(API_KEY_HEADER);
-
-        // Permitimos peticiones OPTIONS para CORS
+        // Permitimos peticiones OPTIONS para CORS de forma directa
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        String requestApiKey = request.getHeader(API_KEY_HEADER);
+
+        // Validación estricta de la llave para el resto de los módulos de la escuela
         if (apiKey.equals(requestApiKey)) {
             filterChain.doFilter(request, response);
         } else {
