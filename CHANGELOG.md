@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/0),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-02
+
+### Added
+- Seguridad: Filtro API Key (`ApiKeyFilter`) para autenticación mediante header `X-API-KEY`
+- Configuración CORS global habilitando todos los orígenes y métodos HTTP estándar
+- Endpoints para novedades por alumno (individual y por periodo)
+- Endpoints para deuda por curso y deuda individual con generación de PDF
+- Endpoints para facturación por fechas y recaudación diaria/por periodo
+
+### Changed
+- Migración de iText 7 a OpenPDF 3.0.5 para generación de PDFs (licencia más permisiva)
+- Upgrade Spring Boot de 4.0.4 a 4.0.6
+- Refactor completo de servicios PDF (`FacturaService`, `CursoService`) para usar OpenPDF API
+
+### Removed
+- Archivo `logback-spring.xml` (logging completamente migrado a Log4j2)
+- Configuración `livereload` de `application.yml` y `devtools`
+- Archivo `nohup.out` del directorio raíz
+
+### Fixed
+- Corrección en la estructura de `application.yml` (propiedades `spring.devtools` sin sub-propiedades obsoletas)
+
+---
+
 ## [1.1.0] - 2026-04-01
 
 ### Added

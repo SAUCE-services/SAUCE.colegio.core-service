@@ -1,43 +1,111 @@
 sequenceDiagram
-    participant Client as Cliente
+    participant Client as Cliente (Frontend)
+    participant ApiKey as ApiKeyFilter
+    participant CORS as CORS Config
     participant Controller as Controllers
     participant Service as Services
     participant Repository as Repositories
     participant DB as MySQL DB
 
-    Note over Client,DB: Flujo de Petición HTTP
-    
-    Client->>Controller: HTTP Request (GET/POST/PUT/DELETE)
-    
-    alt Transaccion Flow
-        Controller->>Controller: TransaccionController
-        Controller->>Service: TransaccionService.getAll()
-        Service->>Repository: ITransaccionRepository.findAll()
-        Repository->>DB: SELECT * FROM transaccion
-        DB-->>Repository: ResultSet
-        Repository-->>Service: List<Transaccion>
-        Service-->>Controller: List<Transaccion>
-        Controller-->>Client: JSON Response (HATEOAS)
-        
-    else Anotador Flow
-        Controller->>Controller: AnotadorController
-        Controller->>Service: AnotadorService
-        Service->>Repository: IAnotadorRepository
-        Repository->>DB: CRUD Operations
-        DB-->>Repository: Result
-        Repository-->>Service: Anotador
-        Service-->>Controller: Anotador (HATEOAS)
-        Controller-->>Client: JSON Response
-        
-    else FacturaParaInteres Flow
-        Controller->>Controller: FacturaParaInteresController
-        Controller->>Service: FacturaParaInteresService
-        Service->>Repository: IFacturaParaInteresRepository
-        Repository->>DB: SELECT with JOIN
-        DB-->>Repository: ResultSet
-        Repository-->>Service: List<FacturaParaInteres>
-        Service-->>Controller: View Model
-        Controller-->>Client: JSON Response
+    Note over Client,DB: Flujo de Petición HTTP con Seguridad API Key
+
+    Client->>ApiKey: HTTP Request (con header X-API-KEY)
+    alt API Key Inválida o Ausente
+        ApiKey-->>Client: 401 Unauthorized
+    else API Key Válida
+        ApiKey->>CORS: Validación CORS
+        CORS->>Controller: Pasa al Controlador
+
+        alt Alumno Flow (/alumno)
+            Controller->>Controller: AlumnoController
+            Controller->>Service: AlumnoService
+            Service->>Repository: AlumnoRepository / CursoRepository
+            Repository->>DB: CRUD / Consultas
+            DB-->>Repository: ResultSet
+            Repository-->>Service: DTOs
+            Service-->>Controller: AlumnoCompletoDto / CursoDetalleResponseDto
+            Controller-->>Client: JSON Response / PDF
+
+        else Curso Flow (/curso)
+            Controller->>Controller: CursoController
+            Controller->>Service: CursoService
+            Service->>Repository: CursoRepository
+            Repository->>DB: Consultas paginadas / Deuda
+            DB-->>Repository: ResultSet
+            Repository-->>Service: Page<CursoDto> / DeudaCursoResponseDto
+            Service-->>Controller: Datos estructurados
+            Controller-->>Client: JSON / PDF
+
+        else Factura Flow (/facturacion)
+            Controller->>Controller: FacturaController
+            Controller->>Service: FacturaService
+            Service->>Repository: FacturaRepository / CuentaCorrienteRepository
+            Repository->>DB: JOINs / Agregaciones
+            DB-->>Repository: ResultSet
+            Repository-->>Service: Reportes / Detalles
+            Service-->>Controller: DTOs de Facturación / PDF
+            Controller-->>Client: JSON / PDF
+
+        else Concepto Flow (/concepto)
+            Controller->>Controller: ConceptoController
+            Controller->>Service: ConceptoService
+            Service->>Repository: IConceptoRepository
+            Repository->>DB: CRUD
+            DB-->>Repository: ResultSet
+            Repository-->>Service: Concepto
+            Service-->>Controller: Concepto (HATEOAS)
+            Controller-->>Client: JSON Response
+
+        else Transaccion Flow (/transaccion)
+            Controller->>Controller: TransaccionController
+            Controller->>Service: TransaccionService
+            Service->>Repository: ITransaccionRepository
+            Repository->>DB: CRUD
+            DB-->>Repository: ResultSet
+            Repository-->>Service: List<Transaccion>
+            Service-->>Controller: List<Transaccion>
+            Controller-->>Client: JSON Response (HATEOAS)
+
+        else Anotador Flow (/anotador)
+            Controller->>Controller: AnotadorController
+            Controller->>Service: AnotadorService
+            Service->>Repository: IAnotadorRepository
+            Repository->>DB: CRUD
+            DB-->>Repository: Result
+            Repository-->>Service: Anotador
+            Service-->>Controller: Anotador (HATEOAS)
+            Controller-->>Client: JSON Response
+
+        else Periodo Flow (/periodo)
+            Controller->>Controller: PeriodoController
+            Controller->>Service: PeriodoService
+            Service->>Repository: PeriodoRepository
+            Repository->>DB: Consultas
+            DB-->>Repository: ResultSet
+            Repository-->>Service: Periodo
+            Service-->>Controller: Periodo
+            Controller-->>Client: JSON Response
+
+        else Combos Flow (/combos)
+            Controller->>Controller: CombosController
+            Controller->>Service: CombosService
+            Service->>Repository: Múltiples Repositories
+            Repository->>DB: Consultas de referencia
+            DB-->>Repository: ResultSet
+            Repository-->>Service: Listas agrupadas
+            Service-->>Controller: Map de listas
+            Controller-->>Client: JSON (datos para formularios)
+
+        else FacturaParaInteres Flow (/view)
+            Controller->>Controller: FacturaParaInteresController
+            Controller->>Service: FacturaParaInteresService
+            Service->>Repository: IFacturaParaInteresRepository
+            Repository->>DB: SELECT with JOIN
+            DB-->>Repository: ResultSet
+            Repository-->>Service: List<FacturaParaInteres>
+            Service-->>Controller: View Model
+            Controller-->>Client: JSON Response
+        end
     end
-    
-    Note over Client,DB: Auditoría: timestamps y usuario registrados por Auditable
+
+    Note over Client,DB: Auditoría: timestamps y usuario registrados por @EnableJpaAuditing

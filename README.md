@@ -1,16 +1,16 @@
 # sauce.colegio.core-service
 
-Demo project for Spring Boot - Core Service
+Core Service para la gestión escolar del Colegio El Sauce
 
 ## Información del Proyecto
 
-- **Versión:** 1.1.0
+- **Versión:** 1.2.0
 - **Java Version:** 25
-- **Spring Boot Version:** 4.0.4
+- **Spring Boot Version:** 4.0.6
 
 ## Tecnologías
 
-- Spring Boot 4.0.4
+- Spring Boot 4.0.6
 - Spring Data JPA
 - Spring HATEOAS
 - Spring Web
@@ -38,8 +38,8 @@ El servicio está configurado para ejecutarse en el puerto `8081` y conectarse a
 El proyecto incluye un Dockerfile multi-stage para construir una imagen Docker optimizada.
 
 ```bash
-docker build -t sauce.colegio.core-service:1.1.0 .
-docker run -p 8081:8081 sauce.colegio.core-service:1.1.0
+docker build -t sauce.colegio.core-service:1.2.0 .
+docker run -p 8081:8081 sauce.colegio.core-service:1.2.0
 ```
 
 ## API Documentation
