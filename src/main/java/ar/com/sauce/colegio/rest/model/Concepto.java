@@ -19,7 +19,7 @@ public class Concepto extends Auditable implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_concepto")
-    private Long ConceptoId;
+    private Long conceptoId;
 
     private String descripcion;
 

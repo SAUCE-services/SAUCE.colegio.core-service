@@ -1,32 +1,38 @@
 stateDiagram-v2
-    [*] --> Nueva
-    
-    state Nueva {
-        [*] --> Pendiente
-        Pendiente --> Procesando: Iniciar procesamiento
-        Procesando --> Pendiente: Error en proceso
+    [*] --> Pendiente
+
+    state Pendiente {
+        [*] --> SinDeuda
+        SinDeuda --> Facturado: Generar factura
+        Facturado --> Pagado: Registrar pago
+        Pagado --> Vencido: No pago en fecha
     }
-    
-    state Completada {
-        Nueva --> Completada: Transacción exitosa
-        [*] --> Completada: Transacción directa
+
+    state Deuda {
+        Pendiente --> Deuda: Saldo impago acumulado
+        Deuda --> EnGestion: Inicio gestión de cobranza
+        EnGestion --> Pagado: Pago recibido
+        EnGestion --> Incobrable: Gestión fallida
     }
-    
-    state Cancelada {
-        [*] --> Cancelada: Usuario cancela
-        [*] --> Cancelada: Timeout
+
+    state Pagado {
+        Pendiente --> Pagado: Pago completo
+        Facturado --> Pagado: Pago parcial/total
+        Pagado --> [*]
     }
-    
-    Nueva --> Cancelada: cancel()
-    Completada --> [*]
-    Cancelada --> [*]
-    
-    note right of Nueva
-        Auditable: createdAt, createdBy
-        updatedAt, updatedBy
+
+    state Incobrable {
+        Incobrable --> [*]
+    }
+
+    note right of Pendiente
+        Estados de Cuenta Corriente:
+        Cada alumno tiene un ciclo
+        de facturación mensual
     end note
-    
-    note right of Completada
-        Registrada en MySQL
-        con auditoría completa
+
+    note right of Pagado
+        Los pagos se registran con
+        medio de pago, fecha y
+        referencia a factura
     end note

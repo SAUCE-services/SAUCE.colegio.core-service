@@ -43,12 +43,6 @@ public class Padre extends Auditable implements Serializable {
 
     private Integer presente;
 
-    private String uuid;
-
-    @ManyToOne
-    @JoinColumn(name = "id_establecimiento")
-    private Establecimiento establecimiento;
-
     @ManyToOne
     @JoinColumn(name = "id_departamento")
     private Departamento departamento;
@@ -70,16 +64,8 @@ public class Padre extends Auditable implements Serializable {
     private Alumno alumno;
 
     @ManyToOne
-    @JoinColumn(name = "id_tipo_nacionalidad")
-    private TipoNacionalidad tipoNacionalidad;
-
-    @ManyToOne
     @JoinColumn(name = "id_tipo_doc")
     private TipoDocumento tipoDocumento;
-
-    @ManyToOne
-    @JoinColumn(name = "id_transporte")
-    private Transporte transporte;
 
     @ManyToOne
     @JoinColumn(name = "id_parentesco")
