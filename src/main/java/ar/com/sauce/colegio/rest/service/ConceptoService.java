@@ -7,6 +7,7 @@ import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
 import ar.com.sauce.colegio.rest.repository.IConceptoRepository;
 import ar.com.sauce.colegio.rest.repository.IPeriodoRepository;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
+import jakarta.transaction.Transactional;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
@@ -241,6 +242,21 @@ public class ConceptoService {
         return obtenerNovedadesPorAlumnoYPeriodoNombre(dto.getAlumnoId(), dto.getPeriodoNombre()).getDetallesGrilla();
     }
 
+    @Transactional
+    public List<LineaDetalleDto> anularNovedadIndividual(NovedadCargaDto dto) {
+        // 1. Resolvemos el ID del período
+        Periodo per = periodoRepository.findAll().stream()
+                .filter(p -> p.getDescripcion().equalsIgnoreCase(dto.getPeriodoNombre().trim()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Período no encontrado"));
+
+        // 2. Ejecutamos la anulación
+        conceptoRepository.anularNovedadIndividual(dto.getAlumnoId(), per.getPeriodoId(), dto.getConceptoId());
+
+        // 3. Retornamos la lista actualizada
+        return obtenerNovedadesPorAlumnoYPeriodoNombre(dto.getAlumnoId(), dto.getPeriodoNombre()).getDetallesGrilla();
+    }
+
     public List<NovedadCursoDto> obtenerNovedadesPorCurso(Long cursoId, String periodoNombre, String cicloNombre) {
         // 🌟 Pasamos los 3 parámetros al repositorio y mapeamos el nuevo campo cursoNombre
         return conceptoRepository.findNovedadesPorCursoYPeriodo(cursoId, periodoNombre, cicloNombre).stream()
@@ -254,5 +270,15 @@ public class ConceptoService {
                         p.getFechaRegistro()
                 ))
                 .collect(Collectors.toList());
-        }
+    }
+
+    @Transactional
+    public void procesarNovedadMasiva(Long cursoId, Long periodoId, Long conceptoId, BigDecimal importe, String ciclo) {
+        conceptoRepository.agregarNovedadMasiva(cursoId, periodoId, conceptoId, importe, ciclo);
+    }
+
+    @Transactional
+    public void procesarAnulacionMasiva(Long cursoId, Long periodoId, String ciclo) {
+        conceptoRepository.anularNovedadesMasivas(cursoId, periodoId, ciclo);
+    }
 }

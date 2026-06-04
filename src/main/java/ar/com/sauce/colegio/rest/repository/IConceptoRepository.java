@@ -73,6 +73,16 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
             @Param("conceptoId") Long conceptoId,
             @Param("importe") BigDecimal importe);
 
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM alumnos_conceptos " +
+            "WHERE id_alumno = :alumnoId " +
+            "AND id_periodo = :periodoId " +
+            "AND id_concepto = :conceptoId", nativeQuery = true)
+    void anularNovedadIndividual(@Param("alumnoId") Long alumnoId,
+                                 @Param("periodoId") Long periodoId,
+                                 @Param("conceptoId") Long conceptoId);
+
     @Query(value = "SELECT " +
             "  ac.id_alumno AS legajo, " +
             "  CONCAT(a.apellido, ', ', a.nombre) AS alumno, " +
@@ -96,4 +106,35 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
             @Param("periodoNombre") String periodoNombre,
             @Param("cicloNombre") String cicloNombre
     );
+
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO alumnos_conceptos (id_alumno, id_periodo, id_concepto, importe, id_estado, fecha_estado, fecha_registro) " +
+            "SELECT a.id_alumno, :periodoId, :conceptoId, :importe, 4, CURRENT_DATE, CURRENT_DATE " +
+            "FROM alumnos a " +
+            "INNER JOIN cursos cur ON UPPER(TRIM(a.curso)) = UPPER(TRIM(cur.descripcion)) " +
+            "INNER JOIN ciclo cic ON cur.ciclo_id = cic.ciclo_id " +
+            "WHERE cur.id_cursos = :cursoId " +
+            "AND cic.nombre = :ciclo", nativeQuery = true)
+    void agregarNovedadMasiva(@Param("cursoId") Long cursoId,
+                              @Param("periodoId") Long periodoId,
+                              @Param("conceptoId") Long conceptoId,
+                              @Param("importe") BigDecimal importe,
+                              @Param("ciclo") String ciclo);
+
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM alumnos_conceptos " +
+            "WHERE id_alumno IN ( " +
+            "  SELECT a.id_alumno " +
+            "  FROM alumnos a " +
+            "  INNER JOIN cursos cur ON UPPER(TRIM(a.curso)) = UPPER(TRIM(cur.descripcion)) " +
+            "  INNER JOIN ciclo cic ON cur.ciclo_id = cic.ciclo_id " +
+            "  WHERE cur.id_cursos = :cursoId " +
+            "  AND cic.nombre = :ciclo " +
+            ") " +
+            "AND id_periodo = :periodoId", nativeQuery = true)
+    void anularNovedadesMasivas(@Param("cursoId") Long cursoId,
+                                @Param("periodoId") Long periodoId,
+                                @Param("ciclo") String ciclo);
 }
