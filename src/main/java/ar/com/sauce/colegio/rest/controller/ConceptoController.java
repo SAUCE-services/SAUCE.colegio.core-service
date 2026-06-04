@@ -1,10 +1,8 @@
 package ar.com.sauce.colegio.rest.controller;
 
-import ar.com.sauce.colegio.rest.dto.ConceptoDto;
-import ar.com.sauce.colegio.rest.dto.LineaDetalleDto;
-import ar.com.sauce.colegio.rest.dto.NovedadCargaDto;
-import ar.com.sauce.colegio.rest.dto.NovedadesAlumnoResponseDto;
+import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.model.Concepto;
+import ar.com.sauce.colegio.rest.repository.IPeriodoRepository;
 import ar.com.sauce.colegio.rest.service.ConceptoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,8 +22,14 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:4200")
 public class ConceptoController {
 
-    @Autowired
     private ConceptoService service;
+    private final IPeriodoRepository periodoRepository;
+
+    @Autowired
+    public ConceptoController(ConceptoService service, IPeriodoRepository periodoRepository) {
+        this.service = service;
+        this.periodoRepository = periodoRepository;
+    }
 
     @GetMapping("/paginado")
     public ResponseEntity<Page<ConceptoDto>> findAllPaged(
@@ -78,5 +82,44 @@ public class ConceptoController {
     public ResponseEntity<List<LineaDetalleDto>> agregarNovedadAlumno(@RequestBody NovedadCargaDto dto) {
         List<LineaDetalleDto> grillaActualizada = service.agregarNovedadManualConPeriodoNombre(dto);
         return new ResponseEntity<>(grillaActualizada, HttpStatus.OK);
+    }
+
+    // POST para anular novedad específica de un alumno
+    @PostMapping("/novedades/anular")
+    public ResponseEntity<List<LineaDetalleDto>> anularNovedadAlumno(@RequestBody NovedadCargaDto dto) {
+        return ResponseEntity.ok(service.anularNovedadIndividual(dto));
+    }
+
+    /**
+     * Obtiene las novedades cargadas para todos los alumnos de un curso en un periodo específico.
+     * La URL espera: /concepto/novedades/curso/1484?periodoNombre=MAYO%20-%202026
+     */
+    @GetMapping("/novedades/curso/{cursoId}")
+    public ResponseEntity<?> consultarNovedadesPorCurso(
+            @RequestParam Long cursoId,
+            @RequestParam String periodo,
+            @RequestParam String ciclo) { // 🌟 Nuevo RequestParam en Swagger
+        return ResponseEntity.ok(service.obtenerNovedadesPorCurso(cursoId, periodo, ciclo));
+    }
+
+    @PostMapping("/novedades/curso/{cursoId}/agregar-todos")
+    public ResponseEntity<Void> agregarTodos(@PathVariable Long cursoId, @RequestBody NovedadCargaDto dto,@RequestParam String ciclo) {
+        // dto trae periodoNombre, conceptoId e importe
+        Long periodoId = periodoRepository.findAll().stream()
+                .filter(p -> p.getDescripcion().equalsIgnoreCase(dto.getPeriodoNombre()))
+                .findFirst().orElseThrow().getPeriodoId();
+
+        service.procesarNovedadMasiva(cursoId, periodoId, dto.getConceptoId(), dto.getImporte(),ciclo);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/novedades/curso/{cursoId}/anular-todos")
+    public ResponseEntity<Void> anularTodos(@PathVariable Long cursoId, @RequestParam String periodoNombre,@RequestParam String ciclo) {
+        Long periodoId = periodoRepository.findAll().stream()
+                .filter(p -> p.getDescripcion().equalsIgnoreCase(periodoNombre))
+                .findFirst().orElseThrow().getPeriodoId();
+
+        service.procesarAnulacionMasiva(cursoId, periodoId,ciclo);
+        return ResponseEntity.ok().build();
     }
 }

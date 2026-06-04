@@ -1,15 +1,13 @@
 package ar.com.sauce.colegio.rest.service;
 
-import ar.com.sauce.colegio.rest.dto.ConceptoDto;
-import ar.com.sauce.colegio.rest.dto.LineaDetalleDto;
-import ar.com.sauce.colegio.rest.dto.NovedadCargaDto;
-import ar.com.sauce.colegio.rest.dto.NovedadesAlumnoResponseDto;
+import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.model.Concepto;
 import ar.com.sauce.colegio.rest.model.Periodo;
 import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
 import ar.com.sauce.colegio.rest.repository.IConceptoRepository;
 import ar.com.sauce.colegio.rest.repository.IPeriodoRepository;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
+import jakarta.transaction.Transactional;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
@@ -242,5 +240,45 @@ public class ConceptoService {
 
         // Retornamos los datos frescos filtrados por ese mismo período para que se actualice la grilla
         return obtenerNovedadesPorAlumnoYPeriodoNombre(dto.getAlumnoId(), dto.getPeriodoNombre()).getDetallesGrilla();
+    }
+
+    @Transactional
+    public List<LineaDetalleDto> anularNovedadIndividual(NovedadCargaDto dto) {
+        // 1. Resolvemos el ID del período
+        Periodo per = periodoRepository.findAll().stream()
+                .filter(p -> p.getDescripcion().equalsIgnoreCase(dto.getPeriodoNombre().trim()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Período no encontrado"));
+
+        // 2. Ejecutamos la anulación
+        conceptoRepository.anularNovedadIndividual(dto.getAlumnoId(), per.getPeriodoId(), dto.getConceptoId());
+
+        // 3. Retornamos la lista actualizada
+        return obtenerNovedadesPorAlumnoYPeriodoNombre(dto.getAlumnoId(), dto.getPeriodoNombre()).getDetallesGrilla();
+    }
+
+    public List<NovedadCursoDto> obtenerNovedadesPorCurso(Long cursoId, String periodoNombre, String cicloNombre) {
+        // 🌟 Pasamos los 3 parámetros al repositorio y mapeamos el nuevo campo cursoNombre
+        return conceptoRepository.findNovedadesPorCursoYPeriodo(cursoId, periodoNombre, cicloNombre).stream()
+                .map(p -> new NovedadCursoDto(
+                        p.getLegajo(),
+                        p.getAlumno(),
+                        p.getCursoNombre(), // 🌟 Agregamos el nombre del curso extraído de la proyección
+                        p.getConcepto(),
+                        p.getImporte(),
+                        p.getEstado(),
+                        p.getFechaRegistro()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void procesarNovedadMasiva(Long cursoId, Long periodoId, Long conceptoId, BigDecimal importe, String ciclo) {
+        conceptoRepository.agregarNovedadMasiva(cursoId, periodoId, conceptoId, importe, ciclo);
+    }
+
+    @Transactional
+    public void procesarAnulacionMasiva(Long cursoId, Long periodoId, String ciclo) {
+        conceptoRepository.anularNovedadesMasivas(cursoId, periodoId, ciclo);
     }
 }
