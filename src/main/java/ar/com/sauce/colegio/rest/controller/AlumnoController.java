@@ -3,6 +3,7 @@ package ar.com.sauce.colegio.rest.controller;
 import ar.com.sauce.colegio.rest.dto.AlumnoCompletoDto;
 import ar.com.sauce.colegio.rest.dto.AlumnoDto;
 import ar.com.sauce.colegio.rest.dto.CursoDetalleResponseDto;
+import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
 import ar.com.sauce.colegio.rest.service.AlumnoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/alumno")
@@ -20,11 +22,24 @@ import java.util.List;
 public class AlumnoController {
 
     private final AlumnoService service;
+    private final IAlumnoRepository alumnoRepository;
 
     @GetMapping("/curso")
     public ResponseEntity<CursoDetalleResponseDto> getAlumnosByCurso(@RequestParam String nombre) {
         // Cambiamos a findCursoConAlumnos para que traiga Ciclo, Turno, Maestro, etc.
         return new ResponseEntity<>(service.findCursoConAlumnos(nombre), HttpStatus.OK);
+    }
+
+    @GetMapping("/filtrar-por-curso")
+    public ResponseEntity<List<AlumnoDto>> getAlumnosDeUnCurso(@RequestParam String cursoNombre) {
+        List<AlumnoDto> alumnos = alumnoRepository.findAllByCursoIgnoreCase(cursoNombre.trim()).stream()
+                .map(alumno -> new AlumnoDto(
+                        alumno.getAlumnoId(),
+                        alumno.getApellido() + ", " + alumno.getNombre()
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(alumnos);
     }
 
     @PostMapping("/completo")
@@ -57,5 +72,21 @@ public class AlumnoController {
         headers.add("Content-Disposition", "inline; filename=alumnos_curso_" + nombre.replaceAll(" ", "_") + ".pdf");
 
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
+
+    // Para el botón "+": Asignar alumno al curso seleccionado
+    @PostMapping("/{alumnoId}/asignar")
+    public ResponseEntity<Void> asignarAlumno(
+            @PathVariable Long alumnoId,
+            @RequestParam String cursoNombre) {
+        service.asignarAlumnoACurso(alumnoId, cursoNombre);
+        return ResponseEntity.ok().build();
+    }
+
+    // Para el botón "-": Quitar alumno del curso actual
+    @PostMapping("/{alumnoId}/quitar")
+    public ResponseEntity<Void> quitarAlumno(@PathVariable Long alumnoId) {
+        service.quitarAlumnoDeCurso(alumnoId);
+        return ResponseEntity.ok().build();
     }
 }

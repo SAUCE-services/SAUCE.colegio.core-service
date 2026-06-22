@@ -17,7 +17,8 @@ public interface ICursoRepository extends JpaRepository<Curso, Long> {
 
     List<Curso> findAllByCursoIdIn(List<Long> cursoId);
 
-    Optional<Curso> findByDescripcion(String descripcion);
+    @Query("SELECT c FROM Curso c WHERE UPPER(TRIM(c.descripcion)) LIKE UPPER(CONCAT('%', :descripcion, '%'))")
+    Optional<Curso> findByDescripcion(@Param("descripcion") String descripcion);
 
     // ✅ La consulta debe estar dentro de la interfaz
     @Query("SELECT c FROM Curso c " +

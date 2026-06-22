@@ -49,7 +49,6 @@ public class CursoController {
         return new ResponseEntity<>(service.findByAnioCiclo(anio, pageable), HttpStatus.OK);
     }
 
-    // CursoController.java
     @GetMapping("/ciclos-disponibles")
     public ResponseEntity<List<String>> getCiclosUnicos() {
         // Supongamos que tu service tiene un método que hace un "SELECT DISTINCT nombre FROM Ciclo"
