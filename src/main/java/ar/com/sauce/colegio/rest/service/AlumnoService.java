@@ -65,7 +65,6 @@ public class AlumnoService {
                 .collect(Collectors.toList());
     }
 
-    // Dentro de ar.com.sauce.colegio.rest.service.AlumnoService.java
     public CursoDetalleResponseDto findCursoConAlumnos(String cursoNombre) {
         String nombreBusqueda = cursoNombre.trim();
 
@@ -400,5 +399,26 @@ public class AlumnoService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorder(PdfPCell.NO_BORDER);
         table.addCell(cell);
+    }
+
+    @Transactional
+    public void asignarAlumnoACurso(Long alumnoId, String nombreCurso) {
+        // 1. Actualizar el texto plano que usan las recaudaciones
+        alumnoRepository.actualizarCurso(alumnoId, nombreCurso.trim());
+
+        // 2. Buscar el curso real para obtener su ID e impactar en el módulo de deudas
+        Curso curso = cursoRepository.findByDescripcion(nombreCurso.trim())
+                .orElseThrow(() -> new RuntimeException("No se encontró el curso: " + nombreCurso));
+
+        alumnoRepository.asignarCursoRelacional(alumnoId, curso.getCursoId());
+    }
+
+    @Transactional
+    public void quitarAlumnoDeCurso(Long alumnoId) {
+        // 1. Limpiar el texto plano
+        alumnoRepository.actualizarCurso(alumnoId, "");
+
+        // 2. Romper la relación en la tabla intermedia de deudas/ciclos
+        alumnoRepository.quitarCursoRelacional(alumnoId);
     }
 }
