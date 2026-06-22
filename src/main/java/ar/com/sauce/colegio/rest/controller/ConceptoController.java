@@ -96,7 +96,7 @@ public class ConceptoController {
      */
     @GetMapping("/novedades/curso/{cursoId}")
     public ResponseEntity<?> consultarNovedadesPorCurso(
-            @RequestParam Long cursoId,
+            @PathVariable Long cursoId,
             @RequestParam String periodo,
             @RequestParam String ciclo) { // 🌟 Nuevo RequestParam en Swagger
         return ResponseEntity.ok(service.obtenerNovedadesPorCurso(cursoId, periodo, ciclo));
