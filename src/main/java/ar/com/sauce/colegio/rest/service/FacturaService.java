@@ -5,11 +5,13 @@ import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
 
+import ar.com.sauce.colegio.rest.repository.projection.DeudaGeneralProjection;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
 
 import org.openpdf.text.pdf.PdfWriter;
+import org.openpdf.text.pdf.draw.LineSeparator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.text.NumberFormat;
@@ -911,6 +913,147 @@ public class FacturaService {
             document.close();
         } catch (Exception e) {
             throw new RuntimeException("Error al generar el PDF de recaudación por fechas", e);
+        }
+
+        return out.toByteArray();
+    }
+
+    public List<DeudaGeneralDto> obtenerDeudaGeneral() {
+        List<DeudaGeneralProjection> filas = facturaRepository.findDeudaGeneralCompleta();
+
+        // Agrupamos en un mapa para estructurar la jerarquía Alumno -> Facturas
+        Map<Long, DeudaGeneralDto> mapaDeuda = new LinkedHashMap<>();
+
+        for (DeudaGeneralProjection fila : filas) {
+            DeudaGeneralDto dto = mapaDeuda.computeIfAbsent(fila.getIdAlumno(), id -> {
+                DeudaGeneralDto nuevo = new DeudaGeneralDto();
+                nuevo.setIdAlumno(fila.getIdAlumno());
+                nuevo.setLegajo(fila.getLegajo());
+                nuevo.setDni(fila.getDni());
+                nuevo.setNombreAlumno(fila.getAlumno());
+                nuevo.setFacturas(new ArrayList<>());
+                nuevo.setTotalDeudaAlumno(BigDecimal.ZERO);
+                return nuevo;
+            });
+
+            DeudaGeneralDto.FacturaPendienteDto factDto = new DeudaGeneralDto.FacturaPendienteDto();
+            factDto.setNroFactura(fila.getFactura());
+            factDto.setPeriodo(fila.getPeriodo());
+            factDto.setFechaVencimiento(fila.getVencimiento());
+            factDto.setImporte(fila.getImporte());
+
+            dto.getFacturas().add(factDto);
+            dto.setTotalDeudaAlumno(dto.getTotalDeudaAlumno().add(fila.getImporte()));
+        }
+
+        return new ArrayList<>(mapaDeuda.values());
+    }
+
+    public byte[] generarPdfDeudaGeneral() {
+        // 1. Obtenemos los datos agrupados usando la lógica que armamos antes
+        List<DeudaGeneralDto> deudas = obtenerDeudaGeneral();
+
+        // Formateadores
+        DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
+        DateTimeFormatter fmtFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        // Formato A4 con márgenes idénticos a tu reporte de recaudación
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
+
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
+
+            // Fuentes estándar
+            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
+            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+
+            // Cabecera Principal del Documento
+            Paragraph pInstitucion = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", font9B);
+            pInstitucion.setAlignment(Element.ALIGN_LEFT);
+            document.add(pInstitucion);
+
+            Paragraph pGen = new Paragraph(LocalDateTime.now().format(dtfGeneracion), font8);
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pGen);
+
+            Paragraph pTit = new Paragraph("Deuda General", font14B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            document.add(pTit);
+            document.add(Chunk.NEWLINE);
+
+            BigDecimal granTotalDeuda = BigDecimal.ZERO;
+
+            // Iteración sobre cada Alumno con Deuda Activa
+            for (DeudaGeneralDto alumno : deudas) {
+
+                // Línea informativa del alumno: Legajo (DNI) Apellido, Nombre
+                String encabezadoAlumno = String.format("Alumno: %s (%s) %s",
+                        alumno.getLegajo(),
+                        alumno.getDni() != null ? alumno.getDni() : "S/D",
+                        alumno.getNombreAlumno());
+
+                Paragraph pAlumno = new Paragraph(encabezadoAlumno, font8B);
+                pAlumno.setSpacingBefore(8f);
+                document.add(pAlumno);
+
+                // Tabla de Facturas Pendientes (4 columnas para coincidir con el diseño)
+                // Proporciones: Factura (3), Período (4), Vencimiento (3), Importe (2)
+                PdfPTable table = new PdfPTable(new float[]{3, 4, 3, 2});
+                table.setWidthPercentage(90);
+                table.setHorizontalAlignment(Element.ALIGN_RIGHT); // Indentada a la derecha
+                table.setSpacingBefore(3f);
+
+                // Encabezados de la tabla interna
+                String[] cabeceras = {"Factura", "Período", "Vencimiento", "Importe"};
+                for (String c : cabeceras) {
+                    PdfPCell cellHeader = new PdfPCell(new Phrase(c, font8B));
+                    cellHeader.setBorder(PdfPCell.BOTTOM);
+                    if (c.equals("Importe")) {
+                        cellHeader.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    }
+                    table.addCell(cellHeader);
+                }
+
+                // Filas de comprobantes adeudados
+                for (DeudaGeneralDto.FacturaPendienteDto fac : alumno.getFacturas()) {
+                    table.addCell(new PdfPCell(new Phrase(fac.getNroFactura(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(fac.getPeriodo(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+
+                    String fechaVenc = fac.getFechaVencimiento() != null ? fac.getFechaVencimiento().format(fmtFecha) : "-";
+                    table.addCell(new PdfPCell(new Phrase(fechaVenc, font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+
+                    PdfPCell cellImp = new PdfPCell(new Phrase(fmtMoneda.format(fac.getImporte()), font8));
+                    cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    cellImp.setBorder(PdfPCell.NO_BORDER);
+                    table.addCell(cellImp);
+                }
+                document.add(table);
+
+                // Subtotal por Alumno
+                Paragraph pSubTotal = new Paragraph("Total por Alumno: " + fmtMoneda.format(alumno.getTotalDeudaAlumno()), font8B);
+                pSubTotal.setAlignment(Element.ALIGN_RIGHT);
+                pSubTotal.setSpacingAfter(5f);
+                document.add(pSubTotal);
+
+                granTotalDeuda = granTotalDeuda.add(alumno.getTotalDeudaAlumno());
+            }
+
+            // Cierre del Reporte con el Gran Total Consolidado
+            document.add(new Chunk(new LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+
+            Paragraph pFinal = new Paragraph("\nTOTAL DEUDA GENERAL: " + fmtMoneda.format(granTotalDeuda), font11B);
+            pFinal.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pFinal);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de deuda general", e);
         }
 
         return out.toByteArray();
