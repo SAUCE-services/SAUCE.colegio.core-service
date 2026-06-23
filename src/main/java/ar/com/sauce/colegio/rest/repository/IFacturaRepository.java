@@ -1,6 +1,7 @@
 package ar.com.sauce.colegio.rest.repository;
 
 import ar.com.sauce.colegio.rest.model.Factura;
+import ar.com.sauce.colegio.rest.repository.projection.DeudaGeneralProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -159,4 +160,22 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             @Param("desde") LocalDate desde,
             @Param("hasta") LocalDate hasta
     );
+
+    @Query(value = "SELECT " +
+            "  a.id_alumno AS idAlumno, " +
+            "  a.id_alumno AS legajo, " +
+            "  a.nro_documento AS dni, " +
+            "  CONCAT(a.apellido, ', ', a.nombre) AS alumno, " +
+            "  f.nro_factura AS factura, " +
+            "  p.descripcion AS periodo, " +
+            "  f.pri_venc AS vencimiento, " +
+            "  f.importe_adeudado AS importe " +
+            "FROM factura f " +
+            "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
+            "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
+            "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
+            "WHERE f.id_estado = 2 " + // 2 = Factura NO pagada
+            "  AND f.importe_adeudado > 0 " +
+            "ORDER BY a.apellido ASC, a.nombre ASC, f.pri_venc ASC", nativeQuery = true)
+    List<DeudaGeneralProjection> findDeudaGeneralCompleta();
 }

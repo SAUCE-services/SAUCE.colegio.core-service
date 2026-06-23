@@ -125,4 +125,21 @@ public class FacturaController {
         headers.add("Content-Disposition", "inline; filename=recaudacion_fechas.pdf");
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
     }
+
+    @GetMapping("/reportes/deuda-general")
+    public ResponseEntity<List<DeudaGeneralDto>> getDeudaGeneral() {
+        return ResponseEntity.ok(facturaService.obtenerDeudaGeneral());
+    }
+
+    @GetMapping("/reportes/deuda-general-pdf")
+    public ResponseEntity<byte[]> descargarPdfDeudaGeneral() {
+        byte[] pdfContents = facturaService.generarPdfDeudaGeneral();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        // Cambiar a "attachment" si preferís que se descargue directo en vez de abrirse en el navegador
+        headers.add("Content-Disposition", "inline; filename=deuda_general.pdf");
+
+        return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
 }
