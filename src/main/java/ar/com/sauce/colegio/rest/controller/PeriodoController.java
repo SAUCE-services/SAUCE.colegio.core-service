@@ -43,7 +43,7 @@ public class PeriodoController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("periodoId").descending());
         return new ResponseEntity<>(service.buscar(primerVenc, segundoVenc, ciclo, pageable), HttpStatus.OK);
     }
-    
+
     @PostMapping("/")
     public ResponseEntity<?> save(@RequestBody Periodo periodo) {
         try {
