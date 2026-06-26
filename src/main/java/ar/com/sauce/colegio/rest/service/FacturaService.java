@@ -500,6 +500,7 @@ public class FacturaService {
             Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
             Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
             Font fontEncabezado = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Font fontTotalGral = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
 
             // --- ENCABEZADO ---
             Paragraph pTitulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fontEncabezado);
@@ -559,6 +560,19 @@ public class FacturaService {
                 subtotal.setSpacingBefore(5f);
                 document.add(subtotal);
             }
+
+            // 🌟 --- SECCIÓN ADICIONADA: TOTAL DE TODO TODO ---
+            document.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+
+            Paragraph pFinal = new Paragraph(
+                    "\nTOTAL GENERAL DEL PERÍODO (" + datos.getDescripcionPeriodo() + ")\n" +
+                            "Cantidad Total de Facturas: " + datos.getCantidadTotalFacturas() + " - " +
+                            "Monto Consolidado: " + formatoMoneda.format(datos.getGranTotal()),
+                    fontTotalGral
+            );
+            pFinal.setAlignment(Element.ALIGN_RIGHT);
+            pFinal.setSpacingBefore(8f);
+            document.add(pFinal);
 
             document.close();
         } catch (Exception e) {
