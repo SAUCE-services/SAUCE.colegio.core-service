@@ -1,5 +1,6 @@
 package ar.com.sauce.colegio.rest.controller;
 
+import ar.com.sauce.colegio.rest.dto.CursoCargaDto;
 import ar.com.sauce.colegio.rest.dto.CursoDto;
 import ar.com.sauce.colegio.rest.dto.DeudaCursoResponseDto;
 import ar.com.sauce.colegio.rest.model.Curso;
@@ -73,5 +74,17 @@ public class CursoController {
         headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
 
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
+
+    // En rest/controller/CursoController.java
+
+    @PostMapping("/guardar")
+    public ResponseEntity<?> guardarOModificar(@RequestBody CursoCargaDto dto) {
+        try {
+            CursoDto cursoProcesado = service.guardarOModificarCurso(dto);
+            return new ResponseEntity<>(cursoProcesado, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al procesar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

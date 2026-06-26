@@ -1,13 +1,10 @@
 package ar.com.sauce.colegio.rest.service;
 
-import ar.com.sauce.colegio.rest.dto.CursoDetalleResponseDto;
-import ar.com.sauce.colegio.rest.dto.CursoDto;
-import ar.com.sauce.colegio.rest.dto.DeudaCursoDetalleDto;
-import ar.com.sauce.colegio.rest.dto.DeudaCursoResponseDto;
+import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.model.Curso;
-import ar.com.sauce.colegio.rest.repository.IAlumnoRepository;
-import ar.com.sauce.colegio.rest.repository.ICursoRepository;
+import ar.com.sauce.colegio.rest.repository.*;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaCursoProjection;
+import jakarta.transaction.Transactional;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
@@ -34,6 +31,15 @@ public class CursoService {
     private final ICursoRepository repository;
     private final IAlumnoRepository alumnoRepository;
     private final AlumnoService alumnoService; // 👈 Agregado para resolver findCursoConAlumnos
+
+    @Autowired
+    private ITurnoRepository turnoRepository;
+    @Autowired
+    private IMaestroRepository maestroRepository; // Verifica si tu interfaz es IMaestroRepository o similar
+    @Autowired
+    private IEstablecimientoRepository establecimientoRepository;
+    @Autowired
+    private ICicloRepository cicloRepository;
 
     // ✅ UNIFICADO: Todo se inyecta de forma limpia y segura por constructor
     @Autowired
@@ -242,5 +248,38 @@ public class CursoService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorder(PdfPCell.NO_BORDER);
         table.addCell(cell);
+    }
+
+    @Transactional
+    public CursoDto guardarOModificarCurso(CursoCargaDto dto) {
+        Curso curso;
+
+        // Si viene un ID válido, es una modificación. Si no, es una creación.
+        if (dto.getCursoId() != null && dto.getCursoId() > 0) {
+            curso = repository.findById(dto.getCursoId())
+                    .orElseThrow(() -> new RuntimeException("Curso no encontrado con ID: " + dto.getCursoId()));
+        } else {
+            curso = new Curso();
+        }
+
+        // Asignamos la descripción escrita por el usuario
+        curso.setDescripcion(dto.getDescripcion().trim());
+
+        // Resolvemos y asignamos las opciones seleccionadas en la pantalla (image_c1491e.jpg)
+        if (dto.getTurnoId() != null) {
+            turnoRepository.findById(dto.getTurnoId()).ifPresent(curso::setTurno);
+        }
+        if (dto.getMaestroId() != null) {
+            maestroRepository.findById(dto.getMaestroId()).ifPresent(curso::setMaestro);
+        }
+        if (dto.getEstablecimientoId() != null) {
+            establecimientoRepository.findById(dto.getEstablecimientoId()).ifPresent(curso::setEstablecimiento);
+        }
+        if (dto.getCicloId() != null) {
+            cicloRepository.findById(dto.getCicloId()).ifPresent(curso::setCiclo);
+        }
+
+        Curso guardado = repository.save(curso);
+        return convertToDto(guardado); // Retorna con el formato de tu grilla preexistente
     }
 }

@@ -33,8 +33,19 @@ public class AnotadorService {
 	}
 
 	public Anotador add(Anotador anotador) {
-		// se pone Denver para compensar la hora
+		// 1. Evita el error de ObjectOptimisticLockingFailureException
+		if (anotador.getAnotadorId() != null && anotador.getAnotadorId() == 0) {
+			anotador.setAnotadorId(null);
+		}
+
+		// 2. Evita el error de DataIntegrityViolationException (FK anotador_ibfk_2)
+		if (anotador.getTransaccionId() != null && anotador.getTransaccionId() <= 0) {
+			anotador.setTransaccionId(null);
+		}
+
+		// Se pone Denver para compensar la hora
 		anotador.setFecha(Timestamp.valueOf(LocalDateTime.now(ZoneId.of("America/Denver"))));
+
 		repository.save(anotador);
 		return anotador;
 	}

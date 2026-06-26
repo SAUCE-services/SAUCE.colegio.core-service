@@ -4,6 +4,7 @@ import ar.com.sauce.colegio.rest.dto.ComboDto;
 import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -26,6 +27,10 @@ public class CombosController {
     private final IGrupoSanguineoRepository grupoSanguineoRepository;
     private final IObraSocialRepository obraSocialRepository;
     private final IConceptoRepository conceptoRepository;
+    private final ITurnoRepository turnoRepository;
+    private final IMaestroRepository maestroRepository;
+    private final ICicloRepository cicloRepository;
+    private final IEstablecimientoRepository establecimientoRepository;
 
     // --- SECCIÓN ALUMNO ---
     @GetMapping("/documentos")
@@ -88,5 +93,27 @@ public class CombosController {
     @GetMapping("/conceptos")
     public List<Concepto> getConceptos() {
         return conceptoRepository.findAll();
+    }
+
+    @GetMapping("/turnos")
+    public List<Turno> getTurnos() {
+        return turnoRepository.findAll();
+    }
+
+    @GetMapping("/maestros")
+    public List<ComboDto> getMaestros() {
+        return maestroRepository.findAll().stream()
+                .map(m -> new ComboDto(m.getMaestroId(), m.getApellido() + ", " + m.getNombre()))
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/ciclos")
+    public List<Ciclo> getCiclos() {
+        return cicloRepository.findAll();
+    }
+
+    @GetMapping("/establecimientos")
+    public List<Establecimiento> getEstablecimientos() {
+        return establecimientoRepository.findAll();
     }
 }

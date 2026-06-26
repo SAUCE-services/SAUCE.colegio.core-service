@@ -43,4 +43,14 @@ public class PeriodoController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("periodoId").descending());
         return new ResponseEntity<>(service.buscar(primerVenc, segundoVenc, ciclo, pageable), HttpStatus.OK);
     }
+
+    @PostMapping("/")
+    public ResponseEntity<?> save(@RequestBody Periodo periodo) {
+        try {
+            Periodo nuevoPeriodo = service.save(periodo);
+            return new ResponseEntity<>(nuevoPeriodo, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al crear el periodo: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
