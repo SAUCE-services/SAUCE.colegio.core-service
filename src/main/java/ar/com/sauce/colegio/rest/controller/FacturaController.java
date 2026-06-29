@@ -1,6 +1,7 @@
 package ar.com.sauce.colegio.rest.controller;
 
 import ar.com.sauce.colegio.rest.dto.*;
+import ar.com.sauce.colegio.rest.model.Factura;
 import ar.com.sauce.colegio.rest.service.FacturaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -141,5 +142,25 @@ public class FacturaController {
         headers.add("Content-Disposition", "inline; filename=deuda_general.pdf");
 
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
+
+    @PostMapping("/registrar-pago")
+    public ResponseEntity<?> registrarPago(@RequestBody PagoCargaDto dto) {
+        try {
+            Factura facturaPagada = facturaService.registrarPagoFactura(dto);
+            return new ResponseEntity<>(facturaPagada, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al procesar el pago: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PostMapping("/anular-pago/{nroFactura}")
+    public ResponseEntity<?> anularPago(@PathVariable Long nroFactura) {
+        try {
+            Factura facturaRevertida = facturaService.anularPagoFactura(nroFactura);
+            return new ResponseEntity<>(facturaRevertida, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al anular el pago: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }
