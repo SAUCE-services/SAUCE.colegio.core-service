@@ -1153,4 +1153,9 @@ public class FacturaService {
 
         return facturaRepository.save(factura);
     }
+
+    public Map<String, Object> buscarFacturaParaPago(Long alumnoId, String periodoNombre) {
+        return facturaRepository.findFacturaConAlumnoPorPeriodo(alumnoId, periodoNombre.trim())
+                .orElseThrow(() -> new RuntimeException("No se encontró factura pendiente para el período " + periodoNombre));
+    }
 }

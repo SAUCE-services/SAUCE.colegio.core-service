@@ -178,4 +178,23 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "  AND f.importe_adeudado > 0 " +
             "ORDER BY a.apellido ASC, a.nombre ASC, f.pri_venc ASC", nativeQuery = true)
     List<DeudaGeneralProjection> findDeudaGeneralCompleta();
+
+    @Query(value = "SELECT " +
+            "  f.id_facturas AS facturaId, " +
+            "  f.nro_factura AS nroFactura, " +
+            "  f.pri_venc AS primerVencimiento, " +
+            "  f.importe_adeudado AS importeAdeudado, " +
+            "  CONCAT(a.apellido, ', ', a.nombre) AS nombreAlumno " + // 🌟 Agregamos el nombre aquí
+            "FROM factura f " +
+            "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
+            "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
+            "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
+            "WHERE af.id_alumno = :alumnoId " +
+            "  AND p.descripcion = :periodoNombre " +
+            "  AND f.id_estado = 2 " + // 2 = No pagada
+            "LIMIT 1", nativeQuery = true)
+    Optional<Map<String, Object>> findFacturaConAlumnoPorPeriodo(
+            @Param("alumnoId") Long alumnoId,
+            @Param("periodoNombre") String periodoNombre
+    );
 }
