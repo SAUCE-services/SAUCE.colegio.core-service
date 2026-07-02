@@ -15,6 +15,8 @@ import org.openpdf.text.pdf.PdfWriter;
 import org.openpdf.text.pdf.draw.LineSeparator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.lang.reflect.Field;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -230,11 +232,18 @@ public class FacturaService {
 
     private LocalDateTime obtenerFechaCreacion(Factura factura) {
         try {
-            java.lang.reflect.Field field = ar.com.sauce.colegio.rest.model.Auditable.class.getDeclaredField("created");
+            Field field = ar.com.sauce.colegio.rest.model.Auditable.class.getDeclaredField("created");
             field.setAccessible(true);
-            return (LocalDateTime) field.get(factura);
+            LocalDateTime fecha = (LocalDateTime) field.get(factura);
+
+            // 🌟 CORRECCIÓN: Si el campo en la BD es null, devolvemos la fecha del estado o la actual
+            if (fecha == null) {
+                return factura.getFechaEstado() != null ? factura.getFechaEstado().atStartOfDay() : LocalDateTime.now();
+            }
+            return fecha;
         } catch (Exception e) {
-            return LocalDateTime.now();
+            // Fallback si falla el Reflection
+            return factura.getFechaEstado() != null ? factura.getFechaEstado().atStartOfDay() : LocalDateTime.now();
         }
     }
 

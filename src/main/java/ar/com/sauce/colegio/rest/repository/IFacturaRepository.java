@@ -184,15 +184,15 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "  f.nro_factura AS nroFactura, " +
             "  f.pri_venc AS primerVencimiento, " +
             "  f.importe_adeudado AS importeAdeudado, " +
-            "  CONCAT(a.apellido, ', ', a.nombre) AS nombreAlumno " + // 🌟 Agregamos el nombre aquí
+            "  f.id_estado AS estadoId, " +                // 🌟 Agregamos el ID de estado para el Front
+            "  CONCAT(a.apellido, ', ', a.nombre) AS nombreAlumno " +
             "FROM factura f " +
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
             "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
             "WHERE af.id_alumno = :alumnoId " +
             "  AND p.descripcion = :periodoNombre " +
-            "  AND f.id_estado = 2 " + // 2 = No pagada
-            "LIMIT 1", nativeQuery = true)
+            "LIMIT 1", nativeQuery = true) // 🌟 ¡QUITAMOS f.id_estado = 2!
     Optional<Map<String, Object>> findFacturaConAlumnoPorPeriodo(
             @Param("alumnoId") Long alumnoId,
             @Param("periodoNombre") String periodoNombre
