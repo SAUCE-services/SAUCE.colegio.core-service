@@ -6,6 +6,7 @@ import ar.com.sauce.colegio.rest.repository.*;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
 
 import ar.com.sauce.colegio.rest.repository.projection.DeudaGeneralProjection;
+import jakarta.transaction.Transactional;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
@@ -14,6 +15,8 @@ import org.openpdf.text.pdf.PdfWriter;
 import org.openpdf.text.pdf.draw.LineSeparator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.lang.reflect.Field;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -41,6 +44,8 @@ public class FacturaService {
     private IPeriodoRepository periodoRepository;
     @Autowired
     private ConceptoService conceptoService;
+    @Autowired
+    private TransaccionService transaccionService;
 
     public HistoriaFacturacionDto obtenerHistoriaPorAlumno(Long alumnoId) {
         Alumno alumno = alumnoRepository.findById(alumnoId)
@@ -227,11 +232,18 @@ public class FacturaService {
 
     private LocalDateTime obtenerFechaCreacion(Factura factura) {
         try {
-            java.lang.reflect.Field field = ar.com.sauce.colegio.rest.model.Auditable.class.getDeclaredField("created");
+            Field field = ar.com.sauce.colegio.rest.model.Auditable.class.getDeclaredField("created");
             field.setAccessible(true);
-            return (LocalDateTime) field.get(factura);
+            LocalDateTime fecha = (LocalDateTime) field.get(factura);
+
+            // 🌟 CORRECCIÓN: Si el campo en la BD es null, devolvemos la fecha del estado o la actual
+            if (fecha == null) {
+                return factura.getFechaEstado() != null ? factura.getFechaEstado().atStartOfDay() : LocalDateTime.now();
+            }
+            return fecha;
         } catch (Exception e) {
-            return LocalDateTime.now();
+            // Fallback si falla el Reflection
+            return factura.getFechaEstado() != null ? factura.getFechaEstado().atStartOfDay() : LocalDateTime.now();
         }
     }
 
@@ -1071,5 +1083,88 @@ public class FacturaService {
         }
 
         return out.toByteArray();
+    }
+
+    @Transactional
+    public Factura registrarPagoFactura(PagoCargaDto dto) {
+        // 1. Buscamos la factura por su número comercial (ej: 720) como se ve en tu pantalla
+        Factura factura = facturaRepository.findByNroFactura(dto.getNroFactura())
+                .orElseThrow(() -> new RuntimeException("Factura Nro " + dto.getNroFactura() + " no encontrada"));
+
+        // 2. Insertamos de manera real la transacción para que crezca el ID correlativo en la base
+        Transaccion nuevaTransaccion = transaccionService.add();
+
+        // 3. Cambiamos el estado de la factura a Pagada (id_estado = 1)
+        TipoEstado estadoPagado = new TipoEstado();
+        estadoPagado.setEstadoId(1L); // 1 = Pagada / Cancelada en tu sistema
+        factura.setTipoEstado(estadoPagado);
+
+        // 4. Asentamos los importes y fechas de la recaudación
+        factura.setFechaPago(dto.getFechaPago());
+        factura.setImportePagado(dto.getImportePagado());
+
+        // Restamos del adeudo el monto que pagó el alumno
+        BigDecimal nuevoAdeudo = factura.getImporteAdeudado().subtract(dto.getImportePagado());
+        factura.setImporteAdeudado(nuevoAdeudo.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : nuevoAdeudo);
+
+        if (factura.getImporteAdeudado().compareTo(BigDecimal.ZERO) == 0) {
+            factura.setFechaCancelacion(dto.getFechaPago());
+        }
+
+        // 5. Amarramos el ID de la transacción generada a la factura
+        factura.setCajaMovimientoId(nuevaTransaccion.getTransaccionId());
+
+        // 6. Asignamos el medio de pago si se seleccionó del combo
+        if (dto.getTipoPagoId() != null) {
+            TipoPago tp = new TipoPago();
+            tp.setTipoId(dto.getTipoPagoId());
+            factura.setTipoPago(tp);
+        }
+
+        return facturaRepository.save(factura);
+    }
+
+    /**
+     * Anula el pago de una factura revirtiendo sus importes y devolviéndola al estado pendiente
+     */
+    @Transactional
+    public Factura anularPagoFactura(Long nroFactura) {
+        // 1. Buscamos la factura por su número comercial
+        Factura factura = facturaRepository.findByNroFactura(nroFactura)
+                .orElseThrow(() -> new RuntimeException("Factura Nro " + nroFactura + " no encontrada"));
+
+        // 2. Validamos que la factura realmente esté pagada para poder anularla
+        if (factura.getTipoEstado() == null || factura.getTipoEstado().getEstadoId() != 1L) {
+            throw new RuntimeException("La factura Nro " + nroFactura + " no se encuentra en estado PAGADA.");
+        }
+
+        // 3. Revertimos los importes contables
+        BigDecimal importeRevertido = factura.getImporteAdeudado().add(factura.getImportePagado());
+        factura.setImporteAdeudado(importeRevertido);
+        factura.setImportePagado(BigDecimal.ZERO);
+
+        // 4. Limpiamos las fechas de control de caja y de cancelación
+        factura.setFechaPago(null);
+        factura.setFechaCancelacion(null);
+
+        // ✅ CORRECCIÓN 1: Evita el error 'cajamovimiento_id' cannot be null
+        factura.setCajaMovimientoId(0L);
+
+        // 🌟 CORRECCIÓN 2: Evita el error 'tipo_id' cannot be null asignando el ID 0L (o el genérico de tu base)
+        TipoPago tipoPagoPorDefecto = new TipoPago();
+        tipoPagoPorDefecto.setTipoId(0L);
+        factura.setTipoPago(tipoPagoPorDefecto);
+
+        // 5. Devolvemos la factura al estado "No pagada" (id_estado = 2)
+        TipoEstado estadoPendiente = new TipoEstado();
+        estadoPendiente.setEstadoId(2L);
+        factura.setTipoEstado(estadoPendiente);
+
+        return facturaRepository.save(factura);
+    }
+
+    public Map<String, Object> buscarFacturaParaPago(Long alumnoId, String periodoNombre) {
+        return facturaRepository.findFacturaConAlumnoPorPeriodo(alumnoId, periodoNombre.trim())
+                .orElseThrow(() -> new RuntimeException("No se encontró factura pendiente para el período " + periodoNombre));
     }
 }

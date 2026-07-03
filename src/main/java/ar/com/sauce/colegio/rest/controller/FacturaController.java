@@ -1,6 +1,7 @@
 package ar.com.sauce.colegio.rest.controller;
 
 import ar.com.sauce.colegio.rest.dto.*;
+import ar.com.sauce.colegio.rest.model.Factura;
 import ar.com.sauce.colegio.rest.service.FacturaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/facturacion")
@@ -141,5 +143,36 @@ public class FacturaController {
         headers.add("Content-Disposition", "inline; filename=deuda_general.pdf");
 
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
+
+    @PostMapping("/registrar-pago")
+    public ResponseEntity<?> registrarPago(@RequestBody PagoCargaDto dto) {
+        try {
+            Factura facturaPagada = facturaService.registrarPagoFactura(dto);
+            return new ResponseEntity<>(facturaPagada, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al procesar el pago: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PostMapping("/anular-pago/{nroFactura}")
+    public ResponseEntity<?> anularPago(@PathVariable Long nroFactura) {
+        try {
+            Factura facturaRevertida = facturaService.anularPagoFactura(nroFactura);
+            return new ResponseEntity<>(facturaRevertida, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al anular el pago: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/buscar-para-pago")
+    public ResponseEntity<?> buscarParaPago(@RequestParam Long alumnoId, @RequestParam String periodo) {
+        try {
+            Map<String, Object> facturaData = facturaService.buscarFacturaParaPago(alumnoId, periodo);
+            return ResponseEntity.ok(facturaData);
+        } catch (Exception e) {
+            // 🌟 DEVOLVEMOS UN 200 OK CON EL CUERPO VACÍO (NULL) DE FORMA FLUIDA
+            return ResponseEntity.ok().build();
+        }
     }
 }
