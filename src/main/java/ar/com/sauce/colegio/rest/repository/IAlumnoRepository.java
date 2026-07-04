@@ -17,6 +17,10 @@ public interface IAlumnoRepository extends JpaRepository<Alumno, Long> {
     // Filtra alumnos por el campo de texto 'curso'
     List<Alumno> findAllByCursoIgnoreCase(String cursoNombre);
 
+    // Agrega esto en IAlumnoRepository.java
+    @Query("SELECT a FROM Alumno a WHERE UPPER(a.apellido) LIKE UPPER(CONCAT('%', :nombre, '%')) OR UPPER(a.nombre) LIKE UPPER(CONCAT('%', :nombre, '%'))")
+    List<Alumno> findByNombreOApellidoContaining(@Param("nombre") String nombre);
+
     @Modifying
     @Transactional
     @Query(value = "INSERT INTO alumnos_ciclo (alumno_id, curso_id) VALUES (:alumnoId, :cursoId) " +
