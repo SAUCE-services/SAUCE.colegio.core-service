@@ -17,7 +17,9 @@ public interface IAlumnoRepository extends JpaRepository<Alumno, Long> {
     // Filtra alumnos por el campo de texto 'curso'
     List<Alumno> findAllByCursoIgnoreCase(String cursoNombre);
 
-    // Agrega esto en IAlumnoRepository.java
+    // 🌟 Para validar que no se repita el DNI al crear/editar un alumno
+    Optional<Alumno> findByNroDocumento(String nroDocumento);
+
     @Query("SELECT a FROM Alumno a WHERE UPPER(a.apellido) LIKE UPPER(CONCAT('%', :nombre, '%')) OR UPPER(a.nombre) LIKE UPPER(CONCAT('%', :nombre, '%'))")
     List<Alumno> findByNombreOApellidoContaining(@Param("nombre") String nombre);
 

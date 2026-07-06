@@ -114,6 +114,22 @@ public class AlumnoService {
         // 1. PROCESAR ALUMNO (O crear o recuperar existente)
         Alumno alumno = (dto.getAlumnoId() != null && dto.getAlumnoId() > 0) ?
                 alumnoRepository.findById(dto.getAlumnoId()).orElse(new Alumno()) : new Alumno();
+
+        // 🌟 Validamos que el DNI no esté repetido en OTRO alumno (si es alta nueva,
+        // o si en la edición se cambió el DNI a uno que ya usa otro registro)
+        if (dto.getNroDocumento() != null && !dto.getNroDocumento().trim().isEmpty()) {
+            String dniBuscado = dto.getNroDocumento().trim();
+            final Long alumnoIdActual = alumno.getAlumnoId(); // copia final para poder usarla en el lambda
+            alumnoRepository.findByNroDocumento(dniBuscado).ifPresent(existente -> {
+                boolean esOtroAlumno = alumnoIdActual == null
+                        || !existente.getAlumnoId().equals(alumnoIdActual);
+                if (esOtroAlumno) {
+                    throw new RuntimeException("Ya existe un alumno registrado con el DNI " + dniBuscado
+                            + " (" + existente.getApellido() + ", " + existente.getNombre() + ").");
+                }
+            });
+        }
+
         alumno.setApellido(dto.getApellido()); // Evita el error de 'apellido' null
         alumno.setNombre(dto.getNombre());
         alumno.setNroDocumento(dto.getNroDocumento());
