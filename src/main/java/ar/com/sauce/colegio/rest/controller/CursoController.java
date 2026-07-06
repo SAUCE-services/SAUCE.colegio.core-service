@@ -76,8 +76,6 @@ public class CursoController {
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
     }
 
-    // En rest/controller/CursoController.java
-
     @PostMapping("/guardar")
     public ResponseEntity<?> guardarOModificar(@RequestBody CursoCargaDto dto) {
         try {
@@ -86,5 +84,22 @@ public class CursoController {
         } catch (Exception e) {
             return new ResponseEntity<>("Error al procesar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    // 🌟 Paginación separada por tipo de establecimiento (jardin/colegio), con filtro opcional de ciclo
+    @GetMapping("/tipo/{tipo}")
+    public ResponseEntity<Page<CursoDto>> findByTipo(
+            @PathVariable String tipo,
+            @RequestParam(required = false) String anio,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("descripcion").ascending());
+
+        Page<CursoDto> resultado = "jardin".equalsIgnoreCase(tipo)
+                ? service.findJardinPaginado(anio, pageable)
+                : service.findColegioPaginado(anio, pageable);
+
+        return new ResponseEntity<>(resultado, HttpStatus.OK);
     }
 }
