@@ -20,6 +20,18 @@ public interface ICursoRepository extends JpaRepository<Curso, Long> {
     @Query("SELECT c FROM Curso c WHERE UPPER(TRIM(c.descripcion)) LIKE UPPER(CONCAT('%', :descripcion, '%'))")
     Optional<Curso> findByDescripcion(@Param("descripcion") String descripcion);
 
+    // 🌟 Resolución EXACTA (sin ambigüedad): TRIM + UPPER en ambos lados, sin LIKE ni wildcards.
+    // Evita el problema de findByDescripcionConDetalles, que al usar LIKE '%texto%' puede
+    // matchear más de un curso cuando un nombre es substring de otro, y quedarse con el
+    // primero en orden arbitrario (mostrando el curso/alumnos equivocados).
+    @Query("SELECT c FROM Curso c " +
+            "JOIN FETCH c.maestro " +
+            "JOIN FETCH c.turno " +
+            "JOIN FETCH c.establecimiento " +
+            "JOIN FETCH c.ciclo " +
+            "WHERE TRIM(UPPER(c.descripcion)) = TRIM(UPPER(:descripcion))")
+    Optional<Curso> findByDescripcionExacta(@Param("descripcion") String descripcion);
+
     // ✅ La consulta debe estar dentro de la interfaz
     @Query("SELECT c FROM Curso c " +
             "JOIN FETCH c.maestro " +
@@ -30,4 +42,17 @@ public interface ICursoRepository extends JpaRepository<Curso, Long> {
     List<Curso> findByDescripcionConDetalles(@Param("descripcion") String descripcion);
 
     Page<Curso> findAllByCiclo_NombreContaining(String anio, Pageable pageable);
+
+    // 🌟 Paginación separada por tipo de establecimiento (Jardín/Inicial vs Colegio),
+    // con filtro opcional de ciclo. LOWER() + los dos patrones (con y sin tilde)
+    // evitan el problema de "Jardín" vs "Jardin" en los datos reales.
+    @Query("SELECT c FROM Curso c WHERE " +
+            "(:anio IS NULL OR c.ciclo.nombre LIKE CONCAT('%', :anio, '%')) AND " +
+            "(LOWER(c.establecimiento.nombre) LIKE '%jardin%' OR LOWER(c.establecimiento.nombre) LIKE '%jardín%' OR LOWER(c.establecimiento.nombre) LIKE '%inicial%')")
+    Page<Curso> findJardinPaginado(@Param("anio") String anio, Pageable pageable);
+
+    @Query("SELECT c FROM Curso c WHERE " +
+            "(:anio IS NULL OR c.ciclo.nombre LIKE CONCAT('%', :anio, '%')) AND " +
+            "NOT (LOWER(c.establecimiento.nombre) LIKE '%jardin%' OR LOWER(c.establecimiento.nombre) LIKE '%jardín%' OR LOWER(c.establecimiento.nombre) LIKE '%inicial%')")
+    Page<Curso> findColegioPaginado(@Param("anio") String anio, Pageable pageable);
 }

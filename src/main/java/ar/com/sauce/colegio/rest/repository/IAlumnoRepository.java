@@ -17,6 +17,10 @@ public interface IAlumnoRepository extends JpaRepository<Alumno, Long> {
     // Filtra alumnos por el campo de texto 'curso'
     List<Alumno> findAllByCursoIgnoreCase(String cursoNombre);
 
+    // Agrega esto en IAlumnoRepository.java
+    @Query("SELECT a FROM Alumno a WHERE UPPER(a.apellido) LIKE UPPER(CONCAT('%', :nombre, '%')) OR UPPER(a.nombre) LIKE UPPER(CONCAT('%', :nombre, '%'))")
+    List<Alumno> findByNombreOApellidoContaining(@Param("nombre") String nombre);
+
     @Modifying
     @Transactional
     @Query(value = "INSERT INTO alumnos_ciclo (alumno_id, curso_id) VALUES (:alumnoId, :cursoId) " +
@@ -27,6 +31,14 @@ public interface IAlumnoRepository extends JpaRepository<Alumno, Long> {
     @Transactional
     @Query(value = "DELETE FROM alumnos_ciclo WHERE alumno_id = :alumnoId", nativeQuery = true)
     void quitarCursoRelacional(@Param("alumnoId") Long alumnoId);
+
+    // 🌟 Trae los alumnos de un curso usando SOLO la relación real (alumnos_ciclo.curso_id).
+    // Un alumno sin ninguna fila en alumnos_ciclo (curso_id NULL) no cuenta como matriculado
+    // en este curso, aunque tenga el campo de texto cargado.
+    @Query(value = "SELECT DISTINCT a.* FROM alumnos a " +
+            "INNER JOIN alumnos_ciclo ac ON a.id_alumno = ac.alumno_id " +
+            "WHERE ac.curso_id = :cursoId", nativeQuery = true)
+    List<Alumno> findAllByCursoRelacionalId(@Param("cursoId") Long cursoId, @Param("cursoDescripcion") String cursoDescripcion);
 
     // ✅ Buscamos por la descripción real de la tabla de cursos mediante LIKE
     @Query(value = "SELECT " +

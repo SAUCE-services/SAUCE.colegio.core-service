@@ -89,4 +89,12 @@ public class AlumnoController {
         service.quitarAlumnoDeCurso(alumnoId);
         return ResponseEntity.ok().build();
     }
+    
+    @GetMapping("/buscar")
+    public ResponseEntity<List<AlumnoDto>> buscarPorNombre(@RequestParam String query) {
+        List<AlumnoDto> resultados = alumnoRepository.findByNombreOApellidoContaining(query).stream()
+                .map(a -> new AlumnoDto(a.getAlumnoId(), a.getApellido() + ", " + a.getNombre()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(resultados);
+    }
 }

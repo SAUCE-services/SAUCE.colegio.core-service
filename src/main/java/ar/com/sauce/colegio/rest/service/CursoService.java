@@ -87,6 +87,14 @@ public class CursoService {
                 .map(this::convertToDto);
     }
 
+    public Page<CursoDto> findJardinPaginado(String anio, Pageable pageable) {
+        return repository.findJardinPaginado(anio, pageable).map(this::convertToDto);
+    }
+
+    public Page<CursoDto> findColegioPaginado(String anio, Pageable pageable) {
+        return repository.findColegioPaginado(anio, pageable).map(this::convertToDto);
+    }
+
     public List<String> listarNombresDeCiclos() {
         return repository.findAll().stream()
                 .map(curso -> curso.getCiclo() != null ? curso.getCiclo().getNombre() : null)

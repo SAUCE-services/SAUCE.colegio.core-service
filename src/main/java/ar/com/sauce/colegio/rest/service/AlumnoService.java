@@ -68,19 +68,36 @@ public class AlumnoService {
     public CursoDetalleResponseDto findCursoConAlumnos(String cursoNombre) {
         String nombreBusqueda = cursoNombre.trim();
 
-        // 1. ✅ Trae la lista de coincidencia y evita de raíz el IncorrectResultSizeDataAccessException
-        List<Curso> cursosConincidentes = cursoRepository.findByDescripcionConDetalles(nombreBusqueda);
+        // 1. 🌟 Resolvemos el curso por coincidencia EXACTA primero (sin ambigüedad).
+        // Si dos cursos tienen nombres parecidos (uno substring del otro), el LIKE de
+        // findByDescripcionConDetalles podía traer los dos y quedarse con el "primero"
+        // en orden arbitrario -> mostraba el curso/alumnos equivocados. La búsqueda
+        // exacta elimina ese riesgo porque solo puede haber un curso con ese texto exacto.
+        Curso curso = cursoRepository.findByDescripcionExacta(nombreBusqueda)
+                .orElseGet(() -> cursoRepository.findByDescripcionConDetalles(nombreBusqueda)
+                        .stream().findFirst().orElse(null));
 
-        // Tomamos el primero de la lista de manera segura
-        Curso curso = cursosConincidentes.stream().findFirst().orElse(null);
-
-        // 2. Traemos la lista de alumnos
-        List<AlumnoDto> alumnosDto = alumnoRepository.findAllByCursoIgnoreCase(nombreBusqueda).stream()
-                .map(alumno -> new AlumnoDto(
-                        alumno.getAlumnoId(),
-                        alumno.getApellido() + ", " + alumno.getNombre()
-                ))
-                .collect(Collectors.toList());
+        // 2. Traemos la lista de alumnos.
+        // 🌟 Usamos la relación real (alumnos_ciclo.curso_id) cuando el curso se encontró,
+        // en vez de comparar texto libre (alumnos.curso vs cursos.descripcion), que fallaba
+        // silenciosamente ante mínimas diferencias de texto entre esos dos campos.
+        List<AlumnoDto> alumnosDto;
+        if (curso != null) {
+            alumnosDto = alumnoRepository.findAllByCursoRelacionalId(curso.getCursoId(), nombreBusqueda).stream()
+                    .map(alumno -> new AlumnoDto(
+                            alumno.getAlumnoId(),
+                            alumno.getApellido() + ", " + alumno.getNombre()
+                    ))
+                    .collect(Collectors.toList());
+        } else {
+            // Fallback: si no se pudo resolver el curso por descripción, probamos por el texto viejo
+            alumnosDto = alumnoRepository.findAllByCursoIgnoreCase(nombreBusqueda).stream()
+                    .map(alumno -> new AlumnoDto(
+                            alumno.getAlumnoId(),
+                            alumno.getApellido() + ", " + alumno.getNombre()
+                    ))
+                    .collect(Collectors.toList());
+        }
 
         CursoDetalleResponseDto response = new CursoDetalleResponseDto();
         if (curso != null) {
