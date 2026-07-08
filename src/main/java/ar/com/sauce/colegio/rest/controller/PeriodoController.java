@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/periodo")
@@ -42,6 +43,12 @@ public class PeriodoController {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("periodoId").descending());
         return new ResponseEntity<>(service.buscar(primerVenc, segundoVenc, ciclo, pageable), HttpStatus.OK);
+    }
+
+    // 🌟 Combo sin paginar para el <select> de Período en "Facturar por Curso"
+    @GetMapping("/combo")
+    public ResponseEntity<List<PeriodoDto>> getComboPorCiclo(@RequestParam String ciclo) {
+        return new ResponseEntity<>(service.listarComboPorCiclo(ciclo), HttpStatus.OK);
     }
 
     @PostMapping("/")

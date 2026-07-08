@@ -1,6 +1,7 @@
 package ar.com.sauce.colegio.rest.repository;
 
 import ar.com.sauce.colegio.rest.model.Concepto;
+import ar.com.sauce.colegio.rest.repository.projection.ConceptoConEstadoProjection;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
 import ar.com.sauce.colegio.rest.repository.projection.NovedadCursoProjection;
@@ -137,4 +138,52 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
     void anularNovedadesMasivas(@Param("cursoId") Long cursoId,
                                 @Param("periodoId") Long periodoId,
                                 @Param("ciclo") String ciclo);
+
+    // 🌟 TODOS los conceptos (novedades) de un alumno en un período, facturados y pendientes,
+    // con la fecha de la Factura vinculada cuando corresponde (para el detalle completo,
+    // igual que muestra el ejecutable original)
+    @Query(value = "SELECT " +
+            "  c.descripcion AS descripcion, " +
+            "  ac.importe AS importe, " +
+            "  CAST(ac.fecha_registro AS DATE) AS fechaRegistro, " +
+            "  f.fecha_estado AS fechaEstado, " +
+            "  CASE WHEN ac.id_facturas IS NOT NULL AND ac.id_facturas <> 0 THEN 1 ELSE 0 END AS facturado " +
+            "FROM alumnos_conceptos ac " +
+            "INNER JOIN conceptos c ON ac.id_concepto = c.id_concepto " +
+            "LEFT JOIN factura f ON ac.id_facturas = f.id_facturas " +
+            "WHERE ac.id_alumno = :alumnoId " +
+            "  AND ac.id_periodo = :periodoId " +
+            "ORDER BY facturado ASC, ac.fecha_registro ASC", nativeQuery = true)
+    List<ConceptoConEstadoProjection> findTodosPorAlumnoYPeriodo(
+            @Param("alumnoId") Long alumnoId,
+            @Param("periodoId") Long periodoId);
+
+    // 🌟 Conceptos (novedades) todavía NO facturados de un alumno en un período
+    // (id_facturas IS NULL o = 0 = pendiente de agrupar en una Factura; en los datos
+    // reales se usan las dos formas según cómo se cargó la novedad)
+    @Query(value = "SELECT " +
+            "  c.descripcion AS descripcion, " +
+            "  ac.importe AS importe, " +
+            "  CAST(ac.fecha_registro AS DATE) AS fechaRegistro " +
+            "FROM alumnos_conceptos ac " +
+            "INNER JOIN conceptos c ON ac.id_concepto = c.id_concepto " +
+            "WHERE ac.id_alumno = :alumnoId " +
+            "  AND ac.id_periodo = :periodoId " +
+            "  AND (ac.id_facturas IS NULL OR ac.id_facturas = 0)", nativeQuery = true)
+    List<ConceptoDetalleProjection> findPendientesPorAlumnoYPeriodo(
+            @Param("alumnoId") Long alumnoId,
+            @Param("periodoId") Long periodoId);
+
+    // 🌟 Marca como facturados todos los conceptos pendientes de un alumno en un período,
+    // vinculándolos a la Factura recién creada
+    @Modifying
+    @Transactional
+    @Query(value = "UPDATE alumnos_conceptos SET id_facturas = :facturaId " +
+            "WHERE id_alumno = :alumnoId " +
+            "  AND id_periodo = :periodoId " +
+            "  AND (id_facturas IS NULL OR id_facturas = 0)", nativeQuery = true)
+    void marcarComoFacturados(
+            @Param("alumnoId") Long alumnoId,
+            @Param("periodoId") Long periodoId,
+            @Param("facturaId") Long facturaId);
 }

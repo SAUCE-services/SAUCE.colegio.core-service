@@ -2,7 +2,9 @@ package ar.com.sauce.colegio.rest.repository;
 
 import ar.com.sauce.colegio.rest.model.Factura;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaGeneralProjection;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -25,6 +27,16 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
     // 1. AGREGA ESTA LÍNEA AQUÍ:
     @Query(value = "SELECT * FROM factura WHERE nro_factura = :nroFactura LIMIT 1", nativeQuery = true)
     Optional<Factura> findByNroFactura(@Param("nroFactura") Long nroFactura);
+
+    // 🌟 Próximo número de factura a usar al generar facturas nuevas (Factura por Curso)
+    @Query(value = "SELECT COALESCE(MAX(nro_factura), 0) FROM factura", nativeQuery = true)
+    Long findMaxNroFactura();
+
+    // 🌟 Vincula un alumno con una factura recién creada (tabla puente alumnos_facturas)
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO alumnos_facturas (id_alumno, id_factura) VALUES (:alumnoId, :facturaId)", nativeQuery = true)
+    void vincularAlumnoConFactura(@Param("alumnoId") Long alumnoId, @Param("facturaId") Long facturaId);
 
 
     @Query(value = "SELECT f.*, f.created as fecha_registro FROM facturas f " +

@@ -104,6 +104,13 @@ public class CursoService {
                 .collect(Collectors.toList());
     }
 
+    // 🌟 Combo sin paginar para poblar el <select> de Curso en "Facturar por Curso"
+    public List<CursoDto> listarComboPorCiclo(String cicloNombre) {
+        return repository.findAllByCiclo_NombreOrderByDescripcionAsc(cicloNombre).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
     public DeudaCursoResponseDto obtenerDeudaPorCurso(String cursoNombre) {
         String nombreBusqueda = cursoNombre.trim();
 

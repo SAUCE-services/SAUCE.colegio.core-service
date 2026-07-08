@@ -22,4 +22,7 @@ public interface IPeriodoRepository extends JpaRepository<Periodo, Long> {
             @Param("fechaSegundo") LocalDate fechaSegundo,
             @Param("cicloNombre") String cicloNombre,
             Pageable pageable);
+
+    // 🌟 Combo sin paginar: todos los periodos de un ciclo, para poblar un <select>
+    List<Periodo> findAllByCiclo_NombreOrderByPeriodoIdDesc(String cicloNombre);
 }

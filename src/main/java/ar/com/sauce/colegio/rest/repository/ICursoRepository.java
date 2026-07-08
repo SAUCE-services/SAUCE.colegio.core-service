@@ -43,6 +43,9 @@ public interface ICursoRepository extends JpaRepository<Curso, Long> {
 
     Page<Curso> findAllByCiclo_NombreContaining(String anio, Pageable pageable);
 
+    // 🌟 Combo sin paginar: todos los cursos de un ciclo, para poblar un <select>
+    List<Curso> findAllByCiclo_NombreOrderByDescripcionAsc(String cicloNombre);
+
     // 🌟 Paginación separada por tipo de establecimiento (Jardín/Inicial vs Colegio),
     // con filtro opcional de ciclo. LOWER() + los dos patrones (con y sin tilde)
     // evitan el problema de "Jardín" vs "Jardin" en los datos reales.

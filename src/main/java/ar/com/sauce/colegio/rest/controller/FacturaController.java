@@ -175,4 +175,27 @@ public class FacturaController {
             return ResponseEntity.ok().build();
         }
     }
+
+    // 🌟 Vista previa: todos los alumnos del curso, marcados como facturado/pendiente
+    @GetMapping("/preview-curso")
+    public ResponseEntity<?> previewFacturaCurso(@RequestParam Long cursoId, @RequestParam Long periodoId) {
+        try {
+            List<PreviewFacturaCursoAlumnoDto> resultado = facturaService.previewFacturaCurso(cursoId, periodoId);
+            return ResponseEntity.ok(resultado);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al obtener la vista previa: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // 🌟 "Facturar por Curso": agrupa las novedades pendientes de cada alumno del curso
+    // en una factura nueva por alumno, para el período y vencimiento indicados.
+    @PostMapping("/facturar-curso")
+    public ResponseEntity<?> facturarCurso(@RequestBody FacturarCursoRequestDto dto) {
+        try {
+            List<FacturaCursoAlumnoResultadoDto> resultado = facturaService.facturarCurso(dto);
+            return ResponseEntity.ok(resultado);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al facturar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

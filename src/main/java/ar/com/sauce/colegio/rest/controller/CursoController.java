@@ -50,10 +50,33 @@ public class CursoController {
         return new ResponseEntity<>(service.findByAnioCiclo(anio, pageable), HttpStatus.OK);
     }
 
+    // 🌟 Paginación separada por tipo de establecimiento (jardin/colegio), con filtro opcional de ciclo
+    @GetMapping("/tipo/{tipo}")
+    public ResponseEntity<Page<CursoDto>> findByTipo(
+            @PathVariable String tipo,
+            @RequestParam(required = false) String anio,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("descripcion").ascending());
+
+        Page<CursoDto> resultado = "jardin".equalsIgnoreCase(tipo)
+                ? service.findJardinPaginado(anio, pageable)
+                : service.findColegioPaginado(anio, pageable);
+
+        return new ResponseEntity<>(resultado, HttpStatus.OK);
+    }
+
     @GetMapping("/ciclos-disponibles")
     public ResponseEntity<List<String>> getCiclosUnicos() {
         // Supongamos que tu service tiene un método que hace un "SELECT DISTINCT nombre FROM Ciclo"
         return new ResponseEntity<>(service.listarNombresDeCiclos(), HttpStatus.OK);
+    }
+
+    // 🌟 Combo sin paginar para el <select> de Curso en "Facturar por Curso"
+    @GetMapping("/combo")
+    public ResponseEntity<List<CursoDto>> getComboPorCiclo(@RequestParam String ciclo) {
+        return new ResponseEntity<>(service.listarComboPorCiclo(ciclo), HttpStatus.OK);
     }
 
     // 1. Endpoint para exponer los datos a la grilla de la App de Angular
@@ -84,22 +107,5 @@ public class CursoController {
         } catch (Exception e) {
             return new ResponseEntity<>("Error al procesar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
-    }
-
-    // 🌟 Paginación separada por tipo de establecimiento (jardin/colegio), con filtro opcional de ciclo
-    @GetMapping("/tipo/{tipo}")
-    public ResponseEntity<Page<CursoDto>> findByTipo(
-            @PathVariable String tipo,
-            @RequestParam(required = false) String anio,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by("descripcion").ascending());
-
-        Page<CursoDto> resultado = "jardin".equalsIgnoreCase(tipo)
-                ? service.findJardinPaginado(anio, pageable)
-                : service.findColegioPaginado(anio, pageable);
-
-        return new ResponseEntity<>(resultado, HttpStatus.OK);
     }
 }

@@ -30,6 +30,13 @@ public class PeriodoService {
                 .map(this::convertToDto);
     }
 
+    // 🌟 Combo sin paginar para el <select> de Período en "Facturar por Curso"
+    public List<PeriodoDto> listarComboPorCiclo(String cicloNombre) {
+        return periodoRepository.findAllByCiclo_NombreOrderByPeriodoIdDesc(cicloNombre).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public Periodo save(Periodo periodo) {
         // Al usar IDENTITY, si periodoId viene null o 0 de Angular,
@@ -38,8 +45,6 @@ public class PeriodoService {
             periodo.setPeriodoId(null);
         }
 
-        // Aquí puedes aplicar filtros o validaciones de negocio previas si fuesen necesarias
-        // Ej: Validar que no exista el mismo mes/año para el ciclo lectivo actual
 
         return periodoRepository.save(periodo);
     }
