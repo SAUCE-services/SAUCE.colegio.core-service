@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public interface ConceptoConEstadoProjection {
+    Long getIdConcepto();
     String getDescripcion();
     BigDecimal getImporte();
     LocalDate getFechaRegistro();

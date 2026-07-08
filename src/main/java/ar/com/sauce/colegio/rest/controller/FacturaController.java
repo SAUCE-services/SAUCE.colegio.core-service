@@ -198,4 +198,20 @@ public class FacturaController {
             return new ResponseEntity<>("Error al facturar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // 🌟 PDF de "Facturar por Curso": una página por cada alumno ya facturado en el período
+    @GetMapping("/imprimir-curso")
+    public ResponseEntity<?> imprimirFacturaCurso(@RequestParam Long cursoId, @RequestParam Long periodoId) {
+        try {
+            byte[] pdfContents = facturaService.generarPdfFacturaCurso(cursoId, periodoId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.add("Content-Disposition", "inline; filename=facturas_curso_" + cursoId + "_" + periodoId + ".pdf");
+
+            return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al generar el PDF: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

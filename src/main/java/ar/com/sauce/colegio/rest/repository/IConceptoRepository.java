@@ -143,6 +143,7 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
     // con la fecha de la Factura vinculada cuando corresponde (para el detalle completo,
     // igual que muestra el ejecutable original)
     @Query(value = "SELECT " +
+            "  c.id_concepto AS idConcepto, " +
             "  c.descripcion AS descripcion, " +
             "  ac.importe AS importe, " +
             "  CAST(ac.fecha_registro AS DATE) AS fechaRegistro, " +
