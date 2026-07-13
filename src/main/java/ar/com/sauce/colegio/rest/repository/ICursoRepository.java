@@ -46,6 +46,13 @@ public interface ICursoRepository extends JpaRepository<Curso, Long> {
     // 🌟 Combo sin paginar: todos los cursos de un ciclo, para poblar un <select>
     List<Curso> findAllByCiclo_NombreOrderByDescripcionAsc(String cicloNombre);
 
+    // 🌟 Resuelve el curso ACTUAL de un alumno vía la relación real (alumnos_ciclo),
+    // usado para armar el encabezado del PDF de "Factura por Alumno"
+    @Query(value = "SELECT c.* FROM cursos c " +
+            "INNER JOIN alumnos_ciclo ac ON c.id_cursos = ac.curso_id " +
+            "WHERE ac.alumno_id = :alumnoId LIMIT 1", nativeQuery = true)
+    Optional<Curso> findCursoActualDeAlumno(@Param("alumnoId") Long alumnoId);
+
     // 🌟 Paginación separada por tipo de establecimiento (Jardín/Inicial vs Colegio),
     // con filtro opcional de ciclo. LOWER() + los dos patrones (con y sin tilde)
     // evitan el problema de "Jardín" vs "Jardin" en los datos reales.

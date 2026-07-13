@@ -77,14 +77,16 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
             "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
-            "INNER JOIN cursos c ON UPPER(TRIM(a.curso)) = UPPER(TRIM(c.descripcion)) " +
+            "INNER JOIN alumnos_ciclo ac ON ac.alumno_id = a.id_alumno " +
+            "    AND ac.curso_id = ( " +
+            "        SELECT MAX(ac2.curso_id) FROM alumnos_ciclo ac2 " +
+            "        INNER JOIN cursos c2 ON c2.id_cursos = ac2.curso_id " +
+            "        WHERE ac2.alumno_id = a.id_alumno AND c2.ciclo_id = p.ciclo_id " +
+            "    ) " +
+            "INNER JOIN cursos c ON c.id_cursos = ac.curso_id " +
             "INNER JOIN conf_establecimiento e ON c.id_establecimiento = e.id_establecimiento " +
             "WHERE p.descripcion = :descripcion " +
-            "AND f.id_estado NOT IN (5, 6) " +
-            "AND (f.importe_adeudado + f.importe_pagado) > 0 " +
-            // 👈 ESTE ES EL FILTRO PARA SACAR LAS QUE NO TIENEN TILDE
-            // Filtramos para que solo traiga las facturas que coincidan con la lógica de los 9 pagos
-            "AND f.nro_factura NOT IN (29422, 29411, 29421) " +
+            "AND f.id_estado <> 6 " + // 6 = Factura Anulada (5 = "Factura con deuda" es un estado VÁLIDO, no se excluye)
             "ORDER BY " +
             "  CASE " +
             "    WHEN e.nombre LIKE 'Jardin%' THEN 1 " +

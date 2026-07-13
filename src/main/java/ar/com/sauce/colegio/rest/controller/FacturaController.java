@@ -176,6 +176,46 @@ public class FacturaController {
         }
     }
 
+    // 🌟 Vista previa de "Factura por Alumno": mismo formato que la de curso, para un solo alumno
+    @GetMapping("/preview-alumno")
+    public ResponseEntity<?> previewFacturaAlumno(@RequestParam Long alumnoId, @RequestParam Long periodoId) {
+        try {
+            PreviewFacturaCursoAlumnoDto resultado = facturaService.previewFacturaAlumno(alumnoId, periodoId);
+            return ResponseEntity.ok(resultado);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al obtener la vista previa: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // 🌟 "Factura por Alumno": agrupa los conceptos pendientes de un alumno en una factura
+    // nueva, sumando además un recargo manual opcional (solo se suma al total)
+    @PostMapping("/facturar-alumno")
+    public ResponseEntity<?> facturarAlumno(@RequestBody FacturarAlumnoRequestDto dto) {
+        try {
+            FacturaCursoAlumnoResultadoDto resultado = facturaService.facturarAlumno(
+                    dto.getAlumnoId(), dto.getPeriodoId(), dto.getFechaVencimiento(), dto.getRecargo());
+            return ResponseEntity.ok(resultado);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al facturar el alumno: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // 🌟 PDF de "Factura por Alumno" (dos copias, misma plantilla que "Factura por Curso")
+    @GetMapping("/imprimir-alumno")
+    public ResponseEntity<?> imprimirFacturaAlumno(@RequestParam Long alumnoId, @RequestParam Long periodoId) {
+        try {
+            byte[] pdfContents = facturaService.generarPdfFacturaAlumno(alumnoId, periodoId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.add("Content-Disposition", "inline; filename=factura_alumno_" + alumnoId + "_" + periodoId + ".pdf");
+
+            return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al generar el PDF: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     // 🌟 Vista previa: todos los alumnos del curso, marcados como facturado/pendiente
     @GetMapping("/preview-curso")
     public ResponseEntity<?> previewFacturaCurso(@RequestParam Long cursoId, @RequestParam Long periodoId) {
@@ -184,18 +224,6 @@ public class FacturaController {
             return ResponseEntity.ok(resultado);
         } catch (Exception e) {
             return new ResponseEntity<>("Error al obtener la vista previa: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    // 🌟 "Facturar por Curso": agrupa las novedades pendientes de cada alumno del curso
-    // en una factura nueva por alumno, para el período y vencimiento indicados.
-    @PostMapping("/facturar-curso")
-    public ResponseEntity<?> facturarCurso(@RequestBody FacturarCursoRequestDto dto) {
-        try {
-            List<FacturaCursoAlumnoResultadoDto> resultado = facturaService.facturarCurso(dto);
-            return ResponseEntity.ok(resultado);
-        } catch (Exception e) {
-            return new ResponseEntity<>("Error al facturar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -212,6 +240,18 @@ public class FacturaController {
             return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>("Error al generar el PDF: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // 🌟 "Facturar por Curso": agrupa las novedades pendientes de cada alumno del curso
+    // en una factura nueva por alumno, para el período y vencimiento indicados.
+    @PostMapping("/facturar-curso")
+    public ResponseEntity<?> facturarCurso(@RequestBody FacturarCursoRequestDto dto) {
+        try {
+            List<FacturaCursoAlumnoResultadoDto> resultado = facturaService.facturarCurso(dto);
+            return ResponseEntity.ok(resultado);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al facturar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }

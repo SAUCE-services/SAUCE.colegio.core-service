@@ -1183,49 +1183,149 @@ public class FacturaService {
         List<Alumno> alumnos = alumnoRepository.findAllByCursoRelacionalId(curso.getCursoId(), curso.getDescripcion());
 
         List<PreviewFacturaCursoAlumnoDto> resultado = new ArrayList<>();
-
         for (Alumno alumno : alumnos) {
-            Optional<Map<String, Object>> facturaExistente =
-                    facturaRepository.findFacturaConAlumnoPorPeriodo(alumno.getAlumnoId(), periodo.getDescripcion());
+            resultado.add(construirPreviewAlumno(alumno, periodo));
+        }
+        return resultado;
+    }
 
-            // 🌟 TODOS los conceptos del alumno en este período (facturados y pendientes),
-            // igual que muestra el ejecutable original
-            List<ConceptoConEstadoProjection> todos =
-                    conceptoRepository.findTodosPorAlumnoYPeriodo(alumno.getAlumnoId(), periodo.getPeriodoId());
+    /**
+     * 🌟 Vista previa de "Factura por Alumno": mismo formato que la de curso, pero para
+     * UN solo alumno (buscado por legajo o por nombre desde el frontend).
+     */
+    public PreviewFacturaCursoAlumnoDto previewFacturaAlumno(Long alumnoId, Long periodoId) {
+        Alumno alumno = alumnoRepository.findById(alumnoId)
+                .orElseThrow(() -> new RuntimeException("Alumno no encontrado (id " + alumnoId + ")"));
 
-            boolean tienePendientes = todos.stream().anyMatch(c -> c.getFacturado() == null || c.getFacturado() == 0L);
+        Periodo periodo = periodoRepository.findById(periodoId)
+                .orElseThrow(() -> new RuntimeException("Período no encontrado (id " + periodoId + ")"));
 
-            PreviewFacturaCursoAlumnoDto item = new PreviewFacturaCursoAlumnoDto();
-            item.setLegajo(alumno.getAlumnoId());
-            item.setNombreCompleto(alumno.getApellido() + ", " + alumno.getNombre());
-            item.setFacturado(facturaExistente.isPresent());
-            item.setTienePendientes(tienePendientes);
+        return construirPreviewAlumno(alumno, periodo);
+    }
 
-            if (facturaExistente.isPresent()) {
-                Map<String, Object> f = facturaExistente.get();
-                Object nro = f.get("nroFactura");
-                Object importe = f.get("importeAdeudado");
-                item.setNroFactura(nro != null ? ((Number) nro).longValue() : null);
-                item.setImporteFactura(importe != null ? new BigDecimal(importe.toString()) : null);
-            }
+    // 🌟 Lógica compartida: arma el preview (facturado/pendiente + detalle de conceptos)
+    // de un alumno en un período. La usan tanto "Facturar por Curso" (por cada alumno del
+    // curso) como "Factura por Alumno" (para uno solo).
+    private PreviewFacturaCursoAlumnoDto construirPreviewAlumno(Alumno alumno, Periodo periodo) {
+        Optional<Map<String, Object>> facturaExistente =
+                facturaRepository.findFacturaConAlumnoPorPeriodo(alumno.getAlumnoId(), periodo.getDescripcion());
 
-            item.setConceptos(todos.stream()
-                    .map(c -> {
-                        boolean estaFacturado = c.getFacturado() != null && c.getFacturado() == 1L;
-                        return new LineaDetalleDto(
-                                estaFacturado ? c.getFechaEstado() : null,
-                                c.getDescripcion(),
-                                estaFacturado ? "Concepto FACTURADO" : "PENDIENTE DE FACTURAR",
-                                c.getImporte(),
-                                c.getFechaRegistro(),
-                                periodo.getDescripcion()
-                        );
-                    })
-                    .collect(Collectors.toList()));
+        // 🌟 TODOS los conceptos del alumno en este período (facturados y pendientes),
+        // igual que muestra el ejecutable original
+        List<ConceptoConEstadoProjection> todos =
+                conceptoRepository.findTodosPorAlumnoYPeriodo(alumno.getAlumnoId(), periodo.getPeriodoId());
 
-            resultado.add(item);
+        boolean tienePendientes = todos.stream().anyMatch(c -> c.getFacturado() == null || c.getFacturado() == 0L);
+
+        PreviewFacturaCursoAlumnoDto item = new PreviewFacturaCursoAlumnoDto();
+        item.setLegajo(alumno.getAlumnoId());
+        item.setNombreCompleto(alumno.getApellido() + ", " + alumno.getNombre());
+        item.setFacturado(facturaExistente.isPresent());
+        item.setTienePendientes(tienePendientes);
+
+        if (facturaExistente.isPresent()) {
+            Map<String, Object> f = facturaExistente.get();
+            Object nro = f.get("nroFactura");
+            Object importe = f.get("importeAdeudado");
+            item.setNroFactura(nro != null ? ((Number) nro).longValue() : null);
+            item.setImporteFactura(importe != null ? new BigDecimal(importe.toString()) : null);
         }
 
+        item.setConceptos(todos.stream()
+                .map(c -> {
+                    boolean estaFacturado = c.getFacturado() != null && c.getFacturado() == 1L;
+                    return new LineaDetalleDto(
+                            estaFacturado ? c.getFechaEstado() : null,
+                            c.getDescripcion(),
+                            estaFacturado ? "Concepto FACTURADO" : "PENDIENTE DE FACTURAR",
+                            c.getImporte(),
+                            c.getFechaRegistro(),
+                            periodo.getDescripcion()
+                    );
+                })
+                .collect(Collectors.toList()));
+
+        return item;
+    }
+
+    /**
+     * 🌟 "Factura por Alumno": agrupa los conceptos pendientes de UN alumno en una
+     * factura nueva, para el período y vencimiento indicados, sumando además un
+     * recargo manual opcional (que solo se suma al total, no genera un concepto aparte).
+     */
+    @Transactional
+    public FacturaCursoAlumnoResultadoDto facturarAlumno(Long alumnoId, Long periodoId, LocalDate fechaVencimiento, BigDecimal recargo) {
+        Alumno alumno = alumnoRepository.findById(alumnoId)
+                .orElseThrow(() -> new RuntimeException("Alumno no encontrado (id " + alumnoId + ")"));
+
+        Periodo periodo = periodoRepository.findById(periodoId)
+                .orElseThrow(() -> new RuntimeException("Período no encontrado (id " + periodoId + ")"));
+
+        if (fechaVencimiento == null) {
+            throw new RuntimeException("Debe indicar la fecha de vencimiento.");
+        }
+
+        List<ConceptoDetalleProjection> pendientes =
+                conceptoRepository.findPendientesPorAlumnoYPeriodo(alumnoId, periodoId);
+
+        if (pendientes.isEmpty()) {
+            throw new RuntimeException("Este alumno no tiene conceptos pendientes de facturar para este período.");
+        }
+
+        BigDecimal recargoAplicado = recargo != null ? recargo : BigDecimal.ZERO;
+
+        BigDecimal totalConceptos = pendientes.stream()
+                .map(ConceptoDetalleProjection::getImporte)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal total = totalConceptos.add(recargoAplicado);
+
+        long siguienteNroFactura = facturaRepository.findMaxNroFactura() + 1;
+        LocalDate hoy = LocalDate.now();
+
+        TipoEstado estadoNoPagada = new TipoEstado();
+        estadoNoPagada.setEstadoId(2L); // 2 = Factura NO pagada
+
+        Factura factura = new Factura();
+        factura.setNroFactura(siguienteNroFactura);
+        factura.setFechaEstado(hoy);
+        factura.setPrimerVencimiento(fechaVencimiento);
+        factura.setImporteAdeudado(total); // Incluye el recargo, sin línea de concepto propia
+        factura.setImportePagado(BigDecimal.ZERO);
+        factura.setTipoEstado(estadoNoPagada);
+        factura.setPeriodo(periodo);
+        factura.setCajaMovimientoId(0L);
+        factura.setImpresa(0);
+        factura.setPfBarras("");
+        factura.setPfCodigo("");
+
+        TipoPago tipoPagoPorDefecto = new TipoPago();
+        tipoPagoPorDefecto.setTipoId(0L);
+        factura.setTipoPago(tipoPagoPorDefecto);
+
+        factura = facturaRepository.save(factura);
+
+        facturaRepository.vincularAlumnoConFactura(alumnoId, factura.getFacturaId());
+        conceptoRepository.marcarComoFacturados(alumnoId, periodoId, factura.getFacturaId());
+
+        List<LineaDetalleDto> conceptos = pendientes.stream()
+                .map(p -> new LineaDetalleDto(
+                        hoy,
+                        p.getDescripcion(),
+                        "Concepto FACTURADO",
+                        p.getImporte(),
+                        p.getFechaRegistro(),
+                        periodo.getDescripcion()
+                ))
+                .collect(Collectors.toList());
+
+        FacturaCursoAlumnoResultadoDto resultado = new FacturaCursoAlumnoResultadoDto();
+        resultado.setLegajo(alumnoId);
+        resultado.setNombreCompleto(alumno.getApellido() + ", " + alumno.getNombre());
+        resultado.setNroFactura(factura.getNroFactura());
+        resultado.setImporteTotal(total);
+        resultado.setConceptos(conceptos);
         return resultado;
     }
 
@@ -1521,6 +1621,96 @@ public class FacturaService {
             document.add(cajaBarras);
         }
 
+    }
+
+    /**
+     * 🌟 PDF de "Factura por Alumno": misma plantilla que "Factura por Curso" (dos
+     * copias, resumen de deuda, etc.) pero para un solo alumno/período.
+     */
+    public byte[] generarPdfFacturaAlumno(Long alumnoId, Long periodoId) {
+        Alumno alumno = alumnoRepository.findById(alumnoId)
+                .orElseThrow(() -> new RuntimeException("Alumno no encontrado (id " + alumnoId + ")"));
+
+        Periodo periodo = periodoRepository.findById(periodoId)
+                .orElseThrow(() -> new RuntimeException("Período no encontrado (id " + periodoId + ")"));
+
+        PreviewFacturaCursoAlumnoDto item = construirPreviewAlumno(alumno, periodo);
+        if (!item.isFacturado()) {
+            throw new RuntimeException("Este alumno no tiene una factura generada para este período todavía.");
+        }
+
+        // El curso actual del alumno es solo para el encabezado (nombre/dirección del
+        // establecimiento y la línea "Curso"); si no se puede resolver, se deja en blanco.
+        Curso curso = cursoRepository.findCursoActualDeAlumno(alumnoId).orElse(null);
+        String establecimiento = (curso != null && curso.getEstablecimiento() != null) ? curso.getEstablecimiento().getNombre() : "";
+        String direccion = (curso != null && curso.getEstablecimiento() != null) ? curso.getEstablecimiento().getDireccion() : "";
+        String cicloNombre = (curso != null && curso.getCiclo() != null)
+                ? curso.getCiclo().getNombre()
+                : (periodo.getCiclo() != null ? periodo.getCiclo().getNombre() : "");
+
+        if (curso == null) {
+            curso = new Curso();
+            curso.setDescripcion("-");
+        }
+
+        NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
+        DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
+        DateTimeFormatter dtfTablas = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
+
+        try {
+            PdfWriter writer = PdfWriter.getInstance(document, out);
+            document.open();
+
+            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+            Font fontSubtitulo = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font fontPlaceholder = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY);
+
+            Optional<Factura> facturaEntidad = facturaRepository.findByNroFactura(item.getNroFactura());
+            LocalDate vencimiento = facturaEntidad.map(Factura::getPrimerVencimiento).orElse(null);
+            LocalDate fechaFactura = facturaEntidad.map(Factura::getFechaEstado).orElse(LocalDate.now());
+            String codigoBarras = facturaEntidad.map(Factura::getPfBarras)
+                    .filter(s -> s != null && !s.isBlank())
+                    .orElse(null);
+
+            String dni = alumno.getNroDocumento();
+
+            List<ConceptoConEstadoProjection> conceptosCompletos =
+                    conceptoRepository.findTodosPorAlumnoYPeriodo(alumnoId, periodoId);
+
+            List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(alumnoId).stream()
+                    .filter(f -> f.getTipoEstado() != null
+                            && f.getTipoEstado().getEstadoId() != null
+                            && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
+                    .filter(f -> !f.getNroFactura().equals(item.getNroFactura()))
+                    .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
+                            Comparator.nullsLast(Comparator.naturalOrder())))
+                    .collect(Collectors.toList());
+
+            dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
+                    cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
+                    formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
+                    false);
+
+            document.add(Chunk.NEWLINE);
+            document.add(new Chunk(new org.openpdf.text.pdf.draw.DottedLineSeparator()));
+            document.add(Chunk.NEWLINE);
+
+            dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
+                    cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
+                    formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
+                    true);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de la factura del alumno", e);
+        }
+
+        return out.toByteArray();
     }
 
     public Map<String, Object> buscarFacturaParaPago(Long alumnoId, String periodoNombre) {
