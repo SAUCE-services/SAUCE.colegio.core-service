@@ -272,11 +272,13 @@ public class FacturaService {
         ReporteRecaudacionDto reporte = new ReporteRecaudacionDto();
         reporte.setFechaReporte(fecha);
         BigDecimal granTotal = BigDecimal.ZERO;
+        int cantidadTotalPagosGral = 0;
 
         for (var entryEst : agrupado.entrySet()) {
             RecaudacionEstablecimientoDto estDto = new RecaudacionEstablecimientoDto();
             estDto.setNombre(entryEst.getKey());
             BigDecimal totalEst = BigDecimal.ZERO;
+            int cantidadPagosEst = 0;
 
             for (var entryMedio : entryEst.getValue().entrySet()) {
                 RecaudacionMedioDto medioDto = new RecaudacionMedioDto();
@@ -323,14 +325,18 @@ public class FacturaService {
 
                 estDto.getMedios().add(medioDto);
                 totalEst = totalEst.add(subtotalMedio);
+                cantidadPagosEst += medioDto.getCantidadPagos();
             }
 
             estDto.setTotalEstablecimiento(totalEst);
+            estDto.setCantidadPagos(cantidadPagosEst);
             reporte.getEstablecimientos().add(estDto);
             granTotal = granTotal.add(totalEst);
+            cantidadTotalPagosGral += cantidadPagosEst;
         }
 
         reporte.setGranTotal(granTotal);
+        reporte.setCantidadTotalPagos(cantidadTotalPagosGral);
         return reporte;
     }
 
@@ -408,10 +414,20 @@ public class FacturaService {
                     document.add(subtotal);
                     document.add(Chunk.NEWLINE);
                 }
+
+                // 🌟 Total del establecimiento (suma de todos sus medios de pago)
+                Paragraph totalEstablecimiento = new Paragraph(
+                        "Total " + ": Cantidad de Pagos: " + est.getCantidadPagos() +
+                                " - Subtotal: " + formatoMoneda.format(est.getTotalEstablecimiento()), fontTitulo);
+                totalEstablecimiento.setAlignment(Element.ALIGN_RIGHT);
+                totalEstablecimiento.setSpacingAfter(10f);
+                document.add(totalEstablecimiento);
             }
 
             // TOTAL GENERAL
-            Paragraph totalGral = new Paragraph("TOTAL GENERAL: " + formatoMoneda.format(datos.getGranTotal()), fontTitulo);
+            Paragraph totalGral = new Paragraph(
+                    "Cantidad Total de Pagos: " + datos.getCantidadTotalPagos() +
+                            " - TOTAL GENERAL: " + formatoMoneda.format(datos.getGranTotal()), fontTitulo);
             totalGral.setAlignment(Element.ALIGN_RIGHT);
             document.add(totalGral);
 
