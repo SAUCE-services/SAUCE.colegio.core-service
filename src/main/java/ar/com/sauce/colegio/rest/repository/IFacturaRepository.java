@@ -96,12 +96,7 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
     List<Map<String, Object>> findFacturasByPeriodoDesc(@Param("descripcion") String descripcion);
 
     @Query(value = "SELECT " +
-            "  CASE " +
-            "    WHEN UPPER(a.curso) LIKE '%SALA%' THEN 'Jardin Maternal C.A.E. PASITOS DE TIZA JP-126' " +
-            "    WHEN a.id_alumno IN (678, 1370, 1341, 1371, 1339, 1373, 1293, 1310, 1401, 1337, 1399, 1303, 811, 798, 854, 821) " +
-            "         THEN 'COLEGIO FRANCISCO PASCASIO MORENO' " +
-            "    ELSE COALESCE(e2.nombre, e1.nombre, 'SIN ESTABLECIMIENTO') " +
-            "  END AS establecimiento, " +
+            "  COALESCE(e_rel.nombre, e2.nombre) AS establecimiento, " +
             "  CASE " +
             "    WHEN tp.nombre LIKE '%Pago%F%cil%' THEN 'PagoFácil' " +
             "    ELSE 'Manual' " +
@@ -117,12 +112,19 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
             "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
             "LEFT JOIN tipopago tp ON f.tipo_id = tp.tipo_id " +
-            "LEFT JOIN conf_establecimiento e2 ON a.id_establecimiento = e2.id_establecimiento " +
-            "LEFT JOIN cursos c ON REPLACE(UPPER(TRIM(a.curso)), '  ', ' ') = REPLACE(UPPER(TRIM(c.descripcion)), '  ', ' ') " +
-            "LEFT JOIN conf_establecimiento e1 ON c.id_establecimiento = e1.id_establecimiento " +
+            "LEFT JOIN conf_establecimiento e2 ON a.id_establecimiento = e2.id_establecimiento AND a.id_establecimiento <> 0 " +
+            "LEFT JOIN alumnos_ciclo ac ON ac.alumno_id = a.id_alumno " +
+            "    AND ac.curso_id = ( " +
+            "        SELECT MAX(ac2.curso_id) FROM alumnos_ciclo ac2 " +
+            "        INNER JOIN cursos c2 ON c2.id_cursos = ac2.curso_id " +
+            "        WHERE ac2.alumno_id = a.id_alumno AND c2.ciclo_id = p.ciclo_id " +
+            "    ) " +
+            "LEFT JOIN cursos c_rel ON c_rel.id_cursos = ac.curso_id " +
+            "LEFT JOIN conf_establecimiento e_rel ON c_rel.id_establecimiento = e_rel.id_establecimiento " +
             "WHERE p.descripcion = :periodo " +
             "  AND f.id_estado = 1 " +
             "  AND f.importe_pagado > 0 " +
+            "  AND COALESCE(e_rel.nombre, e2.nombre) IS NOT NULL " + // 🌟 Si no se puede determinar el establecimiento, no cuenta
             "  AND f.id_facturas IN ( " +
             "      SELECT MAX(f2.id_facturas) " +
             "      FROM factura f2 " +
@@ -132,8 +134,8 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "  ) " +
             "ORDER BY " +
             "  CASE " +
-            "    WHEN UPPER(a.curso) LIKE '%SALA%' OR COALESCE(e2.nombre, e1.nombre) LIKE 'Jardin%' THEN 1 " +
-            "    WHEN COALESCE(e2.nombre, e1.nombre) LIKE 'Colegio%' THEN 2 " +
+            "    WHEN COALESCE(e_rel.nombre, e2.nombre) LIKE 'Jardin%' THEN 1 " +
+            "    WHEN COALESCE(e_rel.nombre, e2.nombre) LIKE 'Colegio%' THEN 2 " +
             "    ELSE 3 " +
             "  END ASC, " +
             "  medioPago ASC, " +

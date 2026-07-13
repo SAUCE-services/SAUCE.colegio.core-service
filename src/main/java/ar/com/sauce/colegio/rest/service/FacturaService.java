@@ -713,6 +713,7 @@ public class FacturaService {
             Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
             Font font10B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
             Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font12B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
             Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
 
             // ENCABEZADO
@@ -764,15 +765,23 @@ public class FacturaService {
                     }
                     doc.add(table);
 
-                    Paragraph pSub = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmt.format(medio.getSubtotal()), font9B);
+                    Paragraph pSub = new Paragraph(
+                            "Cantidad de Pagos: " + medio.getCantidadPagos() + "   |   " + fmt.format(medio.getSubtotal()),
+                            font9B);
                     pSub.setAlignment(Element.ALIGN_RIGHT);
+                    pSub.setSpacingBefore(3f);
                     doc.add(pSub);
                 }
 
                 int pagosEst = est.getMedios().stream().mapToInt(RecaudacionMedioDto::getCantidadPagos).sum();
-                Paragraph pEstTotal = new Paragraph("Cantidad de Pagos: " + pagosEst + " - " + fmt.format(est.getTotalEstablecimiento()), FontFactory.getFont(FontFactory.HELVETICA_BOLDOBLIQUE, 9));
+
+                Paragraph pEstTotal = new Paragraph(
+                        "TOTAL " + "   —   Cantidad de Pagos: " + pagosEst +
+                                "   |   " + fmt.format(est.getTotalEstablecimiento()),
+                        font11B);
                 pEstTotal.setAlignment(Element.ALIGN_RIGHT);
-                pEstTotal.setSpacingAfter(10f);
+                pEstTotal.setSpacingBefore(4f);
+                pEstTotal.setSpacingAfter(14f);
                 doc.add(pEstTotal);
             }
 
@@ -780,11 +789,16 @@ public class FacturaService {
             doc.newPage();
             doc.add(new Paragraph("Recaudación por Período", font14B));
             doc.add(new Paragraph("Período: " + periodo, FontFactory.getFont(FontFactory.HELVETICA, 10)));
+            doc.add(Chunk.NEWLINE);
 
-            Paragraph pFinal = new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmt.format(datos.getGranTotal()), font11B);
-            pFinal.setAlignment(Element.ALIGN_RIGHT);
-            // OpenPDF no tiene setBorderTop directo en Paragraph, dibujamos una línea simple
             doc.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+
+            Paragraph pFinal = new Paragraph(
+                    "TOTAL GENERAL DEL PERÍODO\nCantidad de Pagos: " + datos.getCantidadTotalPagos() +
+                            "   |   " + fmt.format(datos.getGranTotal()),
+                    font12B);
+            pFinal.setAlignment(Element.ALIGN_RIGHT);
+            pFinal.setSpacingBefore(10f);
             doc.add(pFinal);
 
             doc.close();
