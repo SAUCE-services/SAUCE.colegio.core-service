@@ -254,4 +254,15 @@ public class FacturaController {
             return new ResponseEntity<>("Error al facturar el curso: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // 🌟 Anula la factura completa (id_estado = 6). Solo si NO está pagada.
+    @PostMapping("/anular-factura/{nroFactura}")
+    public ResponseEntity<?> anularFactura(@PathVariable Long nroFactura) {
+        try {
+            Factura facturaAnulada = facturaService.anularFactura(nroFactura);
+            return new ResponseEntity<>(facturaAnulada, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al anular la factura: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

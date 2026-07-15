@@ -1834,4 +1834,33 @@ public class FacturaService {
 
         return resultado;
     }
+
+    /**
+     * 🌟 "Anular Factura": anula la factura COMPLETA (id_estado = 6, "Factura Anulada"),
+     * a diferencia de anularPagoFactura que solo revierte un pago. Solo se permite si la
+     * factura NO está pagada — si ya está pagada, primero hay que anular el pago.
+     */
+    @Transactional
+    public Factura anularFactura(Long nroFactura) {
+        Factura factura = facturaRepository.findByNroFactura(nroFactura)
+                .orElseThrow(() -> new RuntimeException("Factura Nro " + nroFactura + " no encontrada"));
+
+        Long estadoActual = factura.getTipoEstado() != null ? factura.getTipoEstado().getEstadoId() : null;
+
+        if (estadoActual != null && estadoActual == 1L) {
+            throw new RuntimeException(
+                    "La factura Nro " + nroFactura + " está pagada. Primero hay que anular el pago antes de anular la factura.");
+        }
+
+        if (estadoActual != null && estadoActual == 6L) {
+            throw new RuntimeException("La factura Nro " + nroFactura + " ya está anulada.");
+        }
+
+        TipoEstado estadoAnulada = new TipoEstado();
+        estadoAnulada.setEstadoId(6L); // 6 = Factura Anulada
+        factura.setTipoEstado(estadoAnulada);
+
+        return facturaRepository.save(factura);
+    }
+
 }
