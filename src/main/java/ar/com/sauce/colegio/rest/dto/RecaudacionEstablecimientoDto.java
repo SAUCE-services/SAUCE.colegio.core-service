@@ -11,4 +11,5 @@ public class RecaudacionEstablecimientoDto {
     private String nombre;
     private List<RecaudacionMedioDto> medios = new ArrayList<>();
     private BigDecimal totalEstablecimiento;
+    private int cantidadPagos;
 }

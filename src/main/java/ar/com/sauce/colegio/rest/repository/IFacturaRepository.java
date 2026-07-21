@@ -2,7 +2,9 @@ package ar.com.sauce.colegio.rest.repository;
 
 import ar.com.sauce.colegio.rest.model.Factura;
 import ar.com.sauce.colegio.rest.repository.projection.DeudaGeneralProjection;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -16,7 +18,9 @@ import java.util.Optional;
 public interface IFacturaRepository extends JpaRepository<Factura, Long> {
 
     // ✅ Usamos una consulta nativa para unir las tablas según la imagen
-    @Query(value = "SELECT f.* FROM factura f " +
+    // 🌟 DISTINCT: si por algún motivo alumnos_facturas tiene una fila duplicada
+    // (alumno+factura repetidos), acá no se cuenta ni se muestra dos veces
+    @Query(value = "SELECT DISTINCT f.* FROM factura f " +
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "WHERE af.id_alumno = :alumnoId " +
             "ORDER BY f.fecha_estado DESC", nativeQuery = true)
@@ -26,8 +30,24 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
     @Query(value = "SELECT * FROM factura WHERE nro_factura = :nroFactura LIMIT 1", nativeQuery = true)
     Optional<Factura> findByNroFactura(@Param("nroFactura") Long nroFactura);
 
+    // 🌟 Próximo número de factura a usar al generar facturas nuevas (Factura por Curso)
+    @Query(value = "SELECT COALESCE(MAX(nro_factura), 0) FROM factura", nativeQuery = true)
+    Long findMaxNroFactura();
 
-    @Query(value = "SELECT f.*, f.created as fecha_registro FROM facturas f " +
+    // 🌟 Vincula un alumno con una factura recién creada (tabla puente alumnos_facturas).
+    // 🌟 Blindado: solo inserta si esa combinación alumno+factura todavía NO existe, para
+    // que no se puedan crear filas duplicadas aunque se llame dos veces por error.
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO alumnos_facturas (id_alumno, id_factura) " +
+            "SELECT :alumnoId, :facturaId " +
+            "WHERE NOT EXISTS ( " +
+            "    SELECT 1 FROM alumnos_facturas WHERE id_alumno = :alumnoId AND id_factura = :facturaId " +
+            ")", nativeQuery = true)
+    void vincularAlumnoConFactura(@Param("alumnoId") Long alumnoId, @Param("facturaId") Long facturaId);
+
+
+    @Query(value = "SELECT DISTINCT f.*, f.created as fecha_registro FROM facturas f " +
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "WHERE af.id_alumno = :alumnoId", nativeQuery = true)
     List<Map<String, Object>> findByAlumnoIdNative(@Param("alumnoId") Long alumnoId);
@@ -65,14 +85,16 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
             "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
-            "INNER JOIN cursos c ON UPPER(TRIM(a.curso)) = UPPER(TRIM(c.descripcion)) " +
+            "INNER JOIN alumnos_ciclo ac ON ac.alumno_id = a.id_alumno " +
+            "    AND ac.curso_id = ( " +
+            "        SELECT MAX(ac2.curso_id) FROM alumnos_ciclo ac2 " +
+            "        INNER JOIN cursos c2 ON c2.id_cursos = ac2.curso_id " +
+            "        WHERE ac2.alumno_id = a.id_alumno AND c2.ciclo_id = p.ciclo_id " +
+            "    ) " +
+            "INNER JOIN cursos c ON c.id_cursos = ac.curso_id " +
             "INNER JOIN conf_establecimiento e ON c.id_establecimiento = e.id_establecimiento " +
             "WHERE p.descripcion = :descripcion " +
-            "AND f.id_estado NOT IN (5, 6) " +
-            "AND (f.importe_adeudado + f.importe_pagado) > 0 " +
-            // 👈 ESTE ES EL FILTRO PARA SACAR LAS QUE NO TIENEN TILDE
-            // Filtramos para que solo traiga las facturas que coincidan con la lógica de los 9 pagos
-            "AND f.nro_factura NOT IN (29422, 29411, 29421) " +
+            "AND f.id_estado <> 6 " + // 6 = Factura Anulada (5 = "Factura con deuda" es un estado VÁLIDO, no se excluye)
             "ORDER BY " +
             "  CASE " +
             "    WHEN e.nombre LIKE 'Jardin%' THEN 1 " +
@@ -82,12 +104,7 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
     List<Map<String, Object>> findFacturasByPeriodoDesc(@Param("descripcion") String descripcion);
 
     @Query(value = "SELECT " +
-            "  CASE " +
-            "    WHEN UPPER(a.curso) LIKE '%SALA%' THEN 'Jardin Maternal C.A.E. PASITOS DE TIZA JP-126' " +
-            "    WHEN a.id_alumno IN (678, 1370, 1341, 1371, 1339, 1373, 1293, 1310, 1401, 1337, 1399, 1303, 811, 798, 854, 821) " +
-            "         THEN 'COLEGIO FRANCISCO PASCASIO MORENO' " +
-            "    ELSE COALESCE(e2.nombre, e1.nombre, 'SIN ESTABLECIMIENTO') " +
-            "  END AS establecimiento, " +
+            "  COALESCE(e_rel.nombre, e2.nombre) AS establecimiento, " +
             "  CASE " +
             "    WHEN tp.nombre LIKE '%Pago%F%cil%' THEN 'PagoFácil' " +
             "    ELSE 'Manual' " +
@@ -103,12 +120,19 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "INNER JOIN alumnos a ON af.id_alumno = a.id_alumno " +
             "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
             "LEFT JOIN tipopago tp ON f.tipo_id = tp.tipo_id " +
-            "LEFT JOIN conf_establecimiento e2 ON a.id_establecimiento = e2.id_establecimiento " +
-            "LEFT JOIN cursos c ON REPLACE(UPPER(TRIM(a.curso)), '  ', ' ') = REPLACE(UPPER(TRIM(c.descripcion)), '  ', ' ') " +
-            "LEFT JOIN conf_establecimiento e1 ON c.id_establecimiento = e1.id_establecimiento " +
+            "LEFT JOIN conf_establecimiento e2 ON a.id_establecimiento = e2.id_establecimiento AND a.id_establecimiento <> 0 " +
+            "LEFT JOIN alumnos_ciclo ac ON ac.alumno_id = a.id_alumno " +
+            "    AND ac.curso_id = ( " +
+            "        SELECT MAX(ac2.curso_id) FROM alumnos_ciclo ac2 " +
+            "        INNER JOIN cursos c2 ON c2.id_cursos = ac2.curso_id " +
+            "        WHERE ac2.alumno_id = a.id_alumno AND c2.ciclo_id = p.ciclo_id " +
+            "    ) " +
+            "LEFT JOIN cursos c_rel ON c_rel.id_cursos = ac.curso_id " +
+            "LEFT JOIN conf_establecimiento e_rel ON c_rel.id_establecimiento = e_rel.id_establecimiento " +
             "WHERE p.descripcion = :periodo " +
             "  AND f.id_estado = 1 " +
             "  AND f.importe_pagado > 0 " +
+            "  AND COALESCE(e_rel.nombre, e2.nombre) IS NOT NULL " + // 🌟 Si no se puede determinar el establecimiento, no cuenta
             "  AND f.id_facturas IN ( " +
             "      SELECT MAX(f2.id_facturas) " +
             "      FROM factura f2 " +
@@ -118,8 +142,8 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "  ) " +
             "ORDER BY " +
             "  CASE " +
-            "    WHEN UPPER(a.curso) LIKE '%SALA%' OR COALESCE(e2.nombre, e1.nombre) LIKE 'Jardin%' THEN 1 " +
-            "    WHEN COALESCE(e2.nombre, e1.nombre) LIKE 'Colegio%' THEN 2 " +
+            "    WHEN COALESCE(e_rel.nombre, e2.nombre) LIKE 'Jardin%' THEN 1 " +
+            "    WHEN COALESCE(e_rel.nombre, e2.nombre) LIKE 'Colegio%' THEN 2 " +
             "    ELSE 3 " +
             "  END ASC, " +
             "  medioPago ASC, " +
@@ -192,7 +216,9 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
             "WHERE af.id_alumno = :alumnoId " +
             "  AND p.descripcion = :periodoNombre " +
-            "LIMIT 1", nativeQuery = true) // 🌟 ¡QUITAMOS f.id_estado = 2!
+            "  AND f.id_estado <> 6 " + // 🌟 6 = Factura Anulada: no cuenta como "ya facturado"
+            "ORDER BY f.id_facturas DESC " +
+            "LIMIT 1", nativeQuery = true)
     Optional<Map<String, Object>> findFacturaConAlumnoPorPeriodo(
             @Param("alumnoId") Long alumnoId,
             @Param("periodoNombre") String periodoNombre
