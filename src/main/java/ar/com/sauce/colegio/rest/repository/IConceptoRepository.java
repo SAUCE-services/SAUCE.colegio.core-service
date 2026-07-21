@@ -187,4 +187,12 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
             @Param("alumnoId") Long alumnoId,
             @Param("periodoId") Long periodoId,
             @Param("facturaId") Long facturaId);
+
+    // 🌟 Al anular una factura, sus conceptos vuelven a quedar "libres" (pendientes de
+    // facturar), para que se puedan agrupar en una factura nueva junto con otras cosas.
+    @Modifying
+    @Transactional
+    @Query(value = "UPDATE alumnos_conceptos SET id_facturas = 0 " +
+            "WHERE id_facturas = :facturaId", nativeQuery = true)
+    void liberarConceptosDeFactura(@Param("facturaId") Long facturaId);
 }

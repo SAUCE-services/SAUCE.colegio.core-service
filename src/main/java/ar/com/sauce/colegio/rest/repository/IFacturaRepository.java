@@ -18,7 +18,9 @@ import java.util.Optional;
 public interface IFacturaRepository extends JpaRepository<Factura, Long> {
 
     // ✅ Usamos una consulta nativa para unir las tablas según la imagen
-    @Query(value = "SELECT f.* FROM factura f " +
+    // 🌟 DISTINCT: si por algún motivo alumnos_facturas tiene una fila duplicada
+    // (alumno+factura repetidos), acá no se cuenta ni se muestra dos veces
+    @Query(value = "SELECT DISTINCT f.* FROM factura f " +
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "WHERE af.id_alumno = :alumnoId " +
             "ORDER BY f.fecha_estado DESC", nativeQuery = true)
@@ -32,14 +34,20 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
     @Query(value = "SELECT COALESCE(MAX(nro_factura), 0) FROM factura", nativeQuery = true)
     Long findMaxNroFactura();
 
-    // 🌟 Vincula un alumno con una factura recién creada (tabla puente alumnos_facturas)
+    // 🌟 Vincula un alumno con una factura recién creada (tabla puente alumnos_facturas).
+    // 🌟 Blindado: solo inserta si esa combinación alumno+factura todavía NO existe, para
+    // que no se puedan crear filas duplicadas aunque se llame dos veces por error.
     @Modifying
     @Transactional
-    @Query(value = "INSERT INTO alumnos_facturas (id_alumno, id_factura) VALUES (:alumnoId, :facturaId)", nativeQuery = true)
+    @Query(value = "INSERT INTO alumnos_facturas (id_alumno, id_factura) " +
+            "SELECT :alumnoId, :facturaId " +
+            "WHERE NOT EXISTS ( " +
+            "    SELECT 1 FROM alumnos_facturas WHERE id_alumno = :alumnoId AND id_factura = :facturaId " +
+            ")", nativeQuery = true)
     void vincularAlumnoConFactura(@Param("alumnoId") Long alumnoId, @Param("facturaId") Long facturaId);
 
 
-    @Query(value = "SELECT f.*, f.created as fecha_registro FROM facturas f " +
+    @Query(value = "SELECT DISTINCT f.*, f.created as fecha_registro FROM facturas f " +
             "INNER JOIN alumnos_facturas af ON f.id_facturas = af.id_factura " +
             "WHERE af.id_alumno = :alumnoId", nativeQuery = true)
     List<Map<String, Object>> findByAlumnoIdNative(@Param("alumnoId") Long alumnoId);
@@ -208,7 +216,9 @@ public interface IFacturaRepository extends JpaRepository<Factura, Long> {
             "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
             "WHERE af.id_alumno = :alumnoId " +
             "  AND p.descripcion = :periodoNombre " +
-            "LIMIT 1", nativeQuery = true) // 🌟 ¡QUITAMOS f.id_estado = 2!
+            "  AND f.id_estado <> 6 " + // 🌟 6 = Factura Anulada: no cuenta como "ya facturado"
+            "ORDER BY f.id_facturas DESC " +
+            "LIMIT 1", nativeQuery = true)
     Optional<Map<String, Object>> findFacturaConAlumnoPorPeriodo(
             @Param("alumnoId") Long alumnoId,
             @Param("periodoNombre") String periodoNombre

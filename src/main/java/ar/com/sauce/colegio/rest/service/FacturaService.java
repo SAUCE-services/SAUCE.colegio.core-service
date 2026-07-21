@@ -1860,7 +1860,13 @@ public class FacturaService {
         estadoAnulada.setEstadoId(6L); // 6 = Factura Anulada
         factura.setTipoEstado(estadoAnulada);
 
-        return facturaRepository.save(factura);
+        Factura facturaAnulada = facturaRepository.save(factura);
+
+        // 🌟 Los conceptos que estaban en esta factura vuelven a quedar pendientes,
+        // para poder agruparlos en una factura nueva junto con otras cosas si hace falta
+        conceptoRepository.liberarConceptosDeFactura(factura.getFacturaId());
+
+        return facturaAnulada;
     }
 
 }
