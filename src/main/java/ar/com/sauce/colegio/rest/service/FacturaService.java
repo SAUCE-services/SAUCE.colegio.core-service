@@ -7,6 +7,7 @@ import ar.com.sauce.colegio.rest.repository.projection.ConceptoConEstadoProjecti
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
 
 import ar.com.sauce.colegio.rest.repository.projection.DeudaGeneralProjection;
+import ar.com.sauce.colegio.rest.repository.projection.FacturacionConceptoProjection;
 import jakarta.transaction.Transactional;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.Barcode39;
@@ -1869,4 +1870,167 @@ public class FacturaService {
         return facturaAnulada;
     }
 
+    // 🌟 Facturación por Concepto/Rubro — por Período
+    public ReporteFacturacionConceptoDto obtenerFacturacionPorConceptoYPeriodo(String periodo) {
+        List<FacturacionConceptoProjection> filas = conceptoRepository.findFacturacionPorConceptoYPeriodo(periodo);
+        return construirReporteFacturacionConcepto(filas, periodo);
+    }
+
+    // 🌟 Agrupa las filas planas (alumno + concepto + factura) en un reporte por concepto,
+    // separando totales FACTURADO (todo lo que se facturó, esté pagado o no) y
+    // COBRADO (solo lo que corresponde a facturas ya pagadas)
+    private ReporteFacturacionConceptoDto construirReporteFacturacionConcepto(
+            List<FacturacionConceptoProjection> filas, String filtroDescripcion) {
+
+        ReporteFacturacionConceptoDto reporte = new ReporteFacturacionConceptoDto();
+        reporte.setFiltroDescripcion(filtroDescripcion);
+        reporte.setFechaGeneracion(LocalDateTime.now());
+
+        // Mantiene el orden de aparición (la query ya viene ordenada por concepto)
+        LinkedHashMap<String, FacturacionConceptoDto> agrupado = new LinkedHashMap<>();
+
+        for (FacturacionConceptoProjection fila : filas) {
+            FacturacionConceptoDto conceptoDto = agrupado.computeIfAbsent(fila.getConcepto(), nombre -> {
+                FacturacionConceptoDto nuevo = new FacturacionConceptoDto();
+                nuevo.setNombreConcepto(nombre);
+                nuevo.setTotalFacturado(BigDecimal.ZERO);
+                nuevo.setTotalCobrado(BigDecimal.ZERO);
+                nuevo.setCantidadFacturado(0);
+                nuevo.setCantidadCobrado(0);
+                return nuevo;
+            });
+
+            boolean pagado = fila.getPagado() != null && fila.getPagado() == 1;
+            BigDecimal importe = fila.getImporte() != null ? fila.getImporte() : BigDecimal.ZERO;
+
+            conceptoDto.getDetalles().add(new ConceptoDetalleAlumnoDto(
+                    fila.getLegajo(), fila.getNombreAlumno(), fila.getNroFactura(), importe,
+                    fila.getFechaFactura(), fila.getFechaPago(), fila.getPeriodo(), pagado
+            ));
+
+            conceptoDto.setTotalFacturado(conceptoDto.getTotalFacturado().add(importe));
+            conceptoDto.setCantidadFacturado(conceptoDto.getCantidadFacturado() + 1);
+
+            if (pagado) {
+                conceptoDto.setTotalCobrado(conceptoDto.getTotalCobrado().add(importe));
+                conceptoDto.setCantidadCobrado(conceptoDto.getCantidadCobrado() + 1);
+            }
+        }
+
+        BigDecimal granTotalFacturado = BigDecimal.ZERO;
+        BigDecimal granTotalCobrado = BigDecimal.ZERO;
+        int cantidadTotalFacturado = 0;
+        int cantidadTotalCobrado = 0;
+
+        for (FacturacionConceptoDto c : agrupado.values()) {
+            granTotalFacturado = granTotalFacturado.add(c.getTotalFacturado());
+            granTotalCobrado = granTotalCobrado.add(c.getTotalCobrado());
+            cantidadTotalFacturado += c.getCantidadFacturado();
+            cantidadTotalCobrado += c.getCantidadCobrado();
+        }
+
+        reporte.setConceptos(new ArrayList<>(agrupado.values()));
+        reporte.setGranTotalFacturado(granTotalFacturado.setScale(2, RoundingMode.HALF_UP));
+        reporte.setGranTotalCobrado(granTotalCobrado.setScale(2, RoundingMode.HALF_UP));
+        reporte.setCantidadTotalFacturado(cantidadTotalFacturado);
+        reporte.setCantidadTotalCobrado(cantidadTotalCobrado);
+        return reporte;
+    }
+
+    // 🌟 PDF de "Facturación por Concepto/Rubro"
+    public byte[] generarPdfFacturacionConcepto(ReporteFacturacionConceptoDto datos) {
+        NumberFormat fmt = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document doc = new Document(PageSize.A4, 40, 20, 20, 20);
+
+        try {
+            PdfWriter.getInstance(doc, out);
+            doc.open();
+
+            Font font7 = FontFactory.getFont(FontFactory.HELVETICA, 7);
+            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
+            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font font10B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font font12B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            doc.add(pGen);
+
+            Paragraph pTit = new Paragraph("Facturación por Concepto / Rubro", font14B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            doc.add(pTit);
+
+            Paragraph pFiltro = new Paragraph("Periodo: " + datos.getFiltroDescripcion(), FontFactory.getFont(FontFactory.HELVETICA, 10));
+            pFiltro.setAlignment(Element.ALIGN_RIGHT);
+            doc.add(pFiltro);
+
+            for (FacturacionConceptoDto concepto : datos.getConceptos()) {
+                doc.add(new Paragraph("\n" + concepto.getNombreConcepto(), font10B));
+
+                PdfPTable table = new PdfPTable(new float[]{1.2f, 2f, 4.5f, 1.8f, 1.8f, 2.3f});
+                table.setWidthPercentage(100);
+                table.setSpacingBefore(5f);
+
+                String[] headers = {"Factura", "Legajo", "Apellido, Nombre", "F. Factura", "F. Pago", "Importe"};
+                for (String h : headers) {
+                    PdfPCell cell = new PdfPCell(new Phrase(h, font8B));
+                    cell.setBorder(PdfPCell.NO_BORDER);
+                    table.addCell(cell);
+                }
+
+                for (ConceptoDetalleAlumnoDto item : concepto.getDetalles()) {
+                    table.addCell(new PdfPCell(new Phrase(item.getNroFactura().toString(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getNombreAlumno(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getFechaFactura() != null ? item.getFechaFactura().format(dtf) : "-", font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.isPagado() && item.getFechaPago() != null ? item.getFechaPago().format(dtf) : "-", font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+
+                    PdfPCell cellImp = new PdfPCell(new Phrase(fmt.format(item.getImporte()), font7));
+                    cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    cellImp.setBorder(PdfPCell.NO_BORDER);
+                    table.addCell(cellImp);
+                }
+                doc.add(table);
+
+                Paragraph pSub = new Paragraph(
+                        "Facturado: " + concepto.getCantidadFacturado() + " - " + fmt.format(concepto.getTotalFacturado()) +
+                                "     |     Cobrado: " + concepto.getCantidadCobrado() + " - " + fmt.format(concepto.getTotalCobrado()),
+                        font9B);
+                pSub.setAlignment(Element.ALIGN_RIGHT);
+                pSub.setSpacingBefore(3f);
+                pSub.setSpacingAfter(10f);
+                doc.add(pSub);
+            }
+
+            // PÁGINA FINAL
+            doc.newPage();
+            doc.add(new Paragraph("Facturación por Concepto / Rubro", font14B));
+            doc.add(new Paragraph("Filtro: " + datos.getFiltroDescripcion(), FontFactory.getFont(FontFactory.HELVETICA, 10)));
+            doc.add(Chunk.NEWLINE);
+            doc.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+
+            Paragraph pFinal = new Paragraph(
+                    "TOTAL FACTURADO\nCantidad: " + datos.getCantidadTotalFacturado() +
+                            "   |   " + fmt.format(datos.getGranTotalFacturado()) +
+                            "\n\nTOTAL COBRADO\nCantidad: " + datos.getCantidadTotalCobrado() +
+                            "   |   " + fmt.format(datos.getGranTotalCobrado()),
+                    font12B);
+            pFinal.setAlignment(Element.ALIGN_RIGHT);
+            pFinal.setSpacingBefore(10f);
+            doc.add(pFinal);
+
+            doc.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de Facturación por Concepto", e);
+        }
+
+        return out.toByteArray();
+    }
 }

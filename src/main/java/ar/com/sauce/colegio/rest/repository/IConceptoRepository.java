@@ -1,10 +1,7 @@
 package ar.com.sauce.colegio.rest.repository;
 
 import ar.com.sauce.colegio.rest.model.Concepto;
-import ar.com.sauce.colegio.rest.repository.projection.ConceptoConEstadoProjection;
-import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
-import ar.com.sauce.colegio.rest.repository.projection.DeudaIndividualProjection;
-import ar.com.sauce.colegio.rest.repository.projection.NovedadCursoProjection;
+import ar.com.sauce.colegio.rest.repository.projection.*;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -195,4 +192,25 @@ public interface IConceptoRepository extends JpaRepository<Concepto, Long> {
     @Query(value = "UPDATE alumnos_conceptos SET id_facturas = 0 " +
             "WHERE id_facturas = :facturaId", nativeQuery = true)
     void liberarConceptosDeFactura(@Param("facturaId") Long facturaId);
+
+    // 🌟 Facturación por Concepto/Rubro — filtrado por Período (igual que Facturas por Período)
+    @Query(value = "SELECT " +
+            "  c.descripcion AS concepto, " +
+            "  a.id_alumno AS legajo, " +
+            "  CONCAT(a.apellido, ', ', a.nombre) AS nombreAlumno, " +
+            "  f.nro_factura AS nroFactura, " +
+            "  ac.importe AS importe, " +
+            "  f.fecha_estado AS fechaFactura, " +
+            "  f.fecha_pago AS fechaPago, " +
+            "  p.descripcion AS periodo, " +
+            "  CASE WHEN f.id_estado = 1 THEN 1 ELSE 0 END AS pagado " +
+            "FROM alumnos_conceptos ac " +
+            "INNER JOIN conceptos c ON ac.id_concepto = c.id_concepto " +
+            "INNER JOIN factura f ON ac.id_facturas = f.id_facturas " +
+            "INNER JOIN alumnos a ON ac.id_alumno = a.id_alumno " +
+            "INNER JOIN periodos p ON f.id_periodo = p.id_periodo " +
+            "WHERE p.descripcion = :periodo " +
+            "  AND f.id_estado <> 6 " + // 6 = Factura Anulada
+            "ORDER BY c.descripcion ASC, a.apellido ASC, a.nombre ASC", nativeQuery = true)
+    List<FacturacionConceptoProjection> findFacturacionPorConceptoYPeriodo(@Param("periodo") String periodo);
 }
