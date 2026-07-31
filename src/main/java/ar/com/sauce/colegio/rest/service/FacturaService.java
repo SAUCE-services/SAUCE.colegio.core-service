@@ -1182,19 +1182,15 @@ public class FacturaService {
         NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Formato A4 con márgenes idénticos a tu reporte de recaudación
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // Fuentes estándar
-            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
-            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
-            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font font8 = fu.f8;
+            Font font8B = fu.f8B;
+            Font font9B = fu.f9B;
+            Font font11B = fu.f11B;
+            Font font14B = fu.f14B;
 
             // Cabecera Principal del Documento
             Paragraph pInstitucion = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", font9B);
