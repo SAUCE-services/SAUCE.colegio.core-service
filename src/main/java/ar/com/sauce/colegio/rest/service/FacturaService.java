@@ -148,84 +148,86 @@ public class FacturaService {
         DateTimeFormatter dtfTablas = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Constructor estándar de OpenPDF: Document(Rectangle, marginLeft, marginRight, marginTop, marginBottom)
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
-        PdfWriter.getInstance(document, out);
-        document.open();
 
-        // FUENTES EXPLÍCITAS
-        Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-        Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-        Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        try {
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+            Font fontNormal = fu.f9;
+            Font fontBold = fu.f9B;
 
-        // ENCABEZADO
-        Paragraph fecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
-        fecha.setAlignment(Element.ALIGN_RIGHT);
-        document.add(fecha);
+            // ENCABEZADO
+            Paragraph fecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
+            fecha.setAlignment(Element.ALIGN_RIGHT);
+            document.add(fecha);
 
-        Paragraph titulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11));
-        titulo.setAlignment(Element.ALIGN_CENTER);
-        document.add(titulo);
+            Paragraph titulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fu.f11B);
+            titulo.setAlignment(Element.ALIGN_CENTER);
+            document.add(titulo);
 
-        Paragraph subtitulo = new Paragraph("Reporte de Deuda Individual", fontHeader);
-        subtitulo.setAlignment(Element.ALIGN_CENTER);
-        document.add(subtitulo);
-        document.add(Chunk.NEWLINE);
+            Paragraph subtitulo = new Paragraph("Reporte de Deuda Individual", fontHeader);
+            subtitulo.setAlignment(Element.ALIGN_CENTER);
+            document.add(subtitulo);
+            document.add(Chunk.NEWLINE);
 
-        // TABLA ALUMNO
-        PdfPTable infoTable = new PdfPTable(4);
-        infoTable.setWidthPercentage(100);
-        try { infoTable.setWidths(new float[]{1.5f, 4.5f, 1f, 3f}); } catch (Exception ignored) {}
+            // TABLA ALUMNO
+            PdfPTable infoTable = new PdfPTable(4);
+            infoTable.setWidthPercentage(100);
+            try { infoTable.setWidths(new float[]{1.5f, 4.5f, 1f, 3f}); } catch (Exception ignored) {}
 
-        addCell(infoTable, "Legajo:", fontBold);
-        addCell(infoTable, alumnoId.toString(), fontNormal);
-        addCell(infoTable, "Curso:", fontBold);
-        addCell(infoTable, alumnoDto.getCurso() != null ? alumnoDto.getCurso() : "Sin Asignar", fontNormal);
-        addCell(infoTable, "Alumno:", fontBold);
-        addCell(infoTable, alumnoDto.getApellido() + ", " + alumnoDto.getNombre(), fontNormal);
-        addCell(infoTable, "DNI:", fontBold);
-        addCell(infoTable, alumnoDto.getNroDocumento(), fontNormal);
+            addCell(infoTable, "Legajo:", fontBold);
+            addCell(infoTable, alumnoId.toString(), fontNormal);
+            addCell(infoTable, "Curso:", fontBold);
+            addCell(infoTable, alumnoDto.getCurso() != null ? alumnoDto.getCurso() : "Sin Asignar", fontNormal);
+            addCell(infoTable, "Alumno:", fontBold);
+            addCell(infoTable, alumnoDto.getApellido() + ", " + alumnoDto.getNombre(), fontNormal);
+            addCell(infoTable, "DNI:", fontBold);
+            addCell(infoTable, alumnoDto.getNroDocumento(), fontNormal);
 
-        document.add(infoTable);
-        document.add(Chunk.NEWLINE);
+            document.add(infoTable);
+            document.add(Chunk.NEWLINE);
 
-        // GRILLA CONCEPTOS
-        PdfPTable table = new PdfPTable(6);
-        table.setWidthPercentage(100);
-        try { table.setWidths(new float[]{1.8f, 4.2f, 2.2f, 1.8f, 1.8f, 2.2f}); } catch (Exception ignored) {}
+            // GRILLA CONCEPTOS
+            PdfPTable table = new PdfPTable(6);
+            table.setWidthPercentage(100);
+            try { table.setWidths(new float[]{1.8f, 4.2f, 2.2f, 1.8f, 1.8f, 2.2f}); } catch (Exception ignored) {}
 
-        String[] headers = {"F.Estado", "Concepto", "Estado", "Importe", "F.Registro", "Periodo"};
-        for (String h : headers) {
-            table.addCell(new PdfPCell(new Phrase(h, fontBold)));
-        }
-
-        if (datosDeuda.getDetalles().isEmpty()) {
-            PdfPCell empty = new PdfPCell(new Phrase("El alumno no registra deudas pendientes.", fontNormal));
-            empty.setColspan(6);
-            empty.setHorizontalAlignment(Element.ALIGN_CENTER);
-            table.addCell(empty);
-        } else {
-            for (LineaDetalleDto item : datosDeuda.getDetalles()) {
-                table.addCell(new Phrase(item.getFechaEstado() != null ? item.getFechaEstado().format(dtfTablas) : "", fontNormal));
-                table.addCell(new Phrase(item.getConcepto(), fontNormal));
-                table.addCell(new Phrase(item.getEstado(), fontNormal));
-
-                PdfPCell imp = new PdfPCell(new Phrase(item.getImporte() != null ? formatoMoneda.format(item.getImporte()) : "$ 0,00", fontNormal));
-                imp.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                table.addCell(imp);
-
-                table.addCell(new Phrase(item.getFechaRegistro() != null ? item.getFechaRegistro().format(dtfTablas) : "", fontNormal));
-                table.addCell(new Phrase(item.getPeriodo(), fontNormal));
+            String[] headers = {"F.Estado", "Concepto", "Estado", "Importe", "F.Registro", "Periodo"};
+            for (String h : headers) {
+                table.addCell(new PdfPCell(new Phrase(h, fontBold)));
             }
+
+            if (datosDeuda.getDetalles().isEmpty()) {
+                PdfPCell empty = new PdfPCell(new Phrase("El alumno no registra deudas pendientes.", fontNormal));
+                empty.setColspan(6);
+                empty.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(empty);
+            } else {
+                for (LineaDetalleDto item : datosDeuda.getDetalles()) {
+                    table.addCell(new Phrase(item.getFechaEstado() != null ? item.getFechaEstado().format(dtfTablas) : "", fontNormal));
+                    table.addCell(new Phrase(item.getConcepto(), fontNormal));
+                    table.addCell(new Phrase(item.getEstado(), fontNormal));
+
+                    PdfPCell imp = new PdfPCell(new Phrase(item.getImporte() != null ? formatoMoneda.format(item.getImporte()) : "$ 0,00", fontNormal));
+                    imp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    table.addCell(imp);
+
+                    table.addCell(new Phrase(item.getFechaRegistro() != null ? item.getFechaRegistro().format(dtfTablas) : "", fontNormal));
+                    table.addCell(new Phrase(item.getPeriodo(), fontNormal));
+                }
+            }
+            document.add(table);
+
+            // TOTAL
+            Paragraph total = new Paragraph("TOTAL DEUDA: " + formatoMoneda.format(datosDeuda.getTotalDeuda()), fontBold);
+            total.setAlignment(Element.ALIGN_RIGHT);
+            document.add(total);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de deuda individual", e);
         }
-        document.add(table);
 
-        // TOTAL
-        Paragraph total = new Paragraph("TOTAL DEUDA: " + formatoMoneda.format(datosDeuda.getTotalDeuda()), fontBold);
-        total.setAlignment(Element.ALIGN_RIGHT);
-        document.add(total);
-
-        document.close();
         return out.toByteArray();
     }
 
@@ -347,17 +349,13 @@ public class FacturaService {
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Constructor de OpenPDF: Document(PageSize, marginLeft, marginRight, marginTop, marginBottom)
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // FUENTES
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font fontNormal = fu.f9;
+            Font fontBold = fu.f9B;
+            Font fontTitulo = fu.f11B;
 
             // ENCABEZADO
             Paragraph pFecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
@@ -379,7 +377,7 @@ public class FacturaService {
 
             // CONTENIDO
             for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
-                document.add(new Paragraph(est.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11)));
+                document.add(new Paragraph(est.getNombre(), fontTitulo));
 
                 for (RecaudacionMedioDto medio : est.getMedios()) {
                     document.add(new Paragraph(medio.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9)));
@@ -584,7 +582,7 @@ public class FacturaService {
     // 🌟 Agrupa las fuentes que se repiten en varios reportes PDF (evita declarar las
     // mismas 8-9 fuentes una y otra vez en cada método generarPdfXxx)
     private static class FuentesReporte {
-        Font f7, f8, f8B, f9B, f10B, f11B, f12B, f14B;
+        Font f7, f8, f8B, f9, f9B, f10B, f11B, f12B, f14B;
     }
 
     private FuentesReporte crearFuentesReporte() {
@@ -592,6 +590,7 @@ public class FacturaService {
         f.f7 = FontFactory.getFont(FontFactory.HELVETICA, 7);
         f.f8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
         f.f8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+        f.f9 = FontFactory.getFont(FontFactory.HELVETICA, 9);
         f.f9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
         f.f10B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
         f.f11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
@@ -703,20 +702,15 @@ public class FacturaService {
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Constructor de OpenPDF: Document(PageSize, marginLeft, marginRight, marginTop, marginBottom)
-        // El margen izquierdo (40) se mantiene para el encarpetado
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // FUENTES
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
-            Font fontEncabezado = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            Font fontTotalGral = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font fontNormal = fu.f9;
+            Font fontBold = fu.f9B;
+            Font fontTitulo = fu.f14B;
+            Font fontEncabezado = fu.f12B;
+            Font fontTotalGral = fu.f11B;
 
             // --- ENCABEZADO ---
             Paragraph pTitulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fontEncabezado);
