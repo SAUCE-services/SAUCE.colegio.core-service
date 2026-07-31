@@ -265,4 +265,30 @@ public class FacturaController {
             return new ResponseEntity<>("Error al anular la factura: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // 🌟 Facturación por Concepto/Rubro — filtrado por Período
+    @GetMapping("/concepto/periodo")
+    public ResponseEntity<?> getFacturacionPorConceptoYPeriodo(@RequestParam String periodo) {
+        try {
+            return ResponseEntity.ok(facturaService.obtenerFacturacionPorConceptoYPeriodo(periodo));
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al obtener la facturación por concepto: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/concepto/periodo-pdf")
+    public ResponseEntity<?> descargarPdfFacturacionPorConceptoYPeriodo(@RequestParam String periodo) {
+        try {
+            ReporteFacturacionConceptoDto datos = facturaService.obtenerFacturacionPorConceptoYPeriodo(periodo);
+            byte[] pdfContents = facturaService.generarPdfFacturacionConcepto(datos);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.add("Content-Disposition", "inline; filename=facturacion_concepto_" + periodo + ".pdf");
+
+            return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error al generar el PDF: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

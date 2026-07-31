@@ -5,6 +5,7 @@ import ar.com.sauce.colegio.rest.model.*;
 import ar.com.sauce.colegio.rest.repository.*;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoConEstadoProjection;
 import ar.com.sauce.colegio.rest.repository.projection.ConceptoDetalleProjection;
+import ar.com.sauce.colegio.rest.repository.projection.FacturacionConceptoProjection;
 
 import ar.com.sauce.colegio.rest.repository.projection.DeudaGeneralProjection;
 import jakarta.transaction.Transactional;
@@ -147,84 +148,86 @@ public class FacturaService {
         DateTimeFormatter dtfTablas = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Constructor estándar de OpenPDF: Document(Rectangle, marginLeft, marginRight, marginTop, marginBottom)
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
-        PdfWriter.getInstance(document, out);
-        document.open();
 
-        // FUENTES EXPLÍCITAS
-        Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-        Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-        Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        try {
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+            Font fontNormal = fu.f9;
+            Font fontBold = fu.f9B;
 
-        // ENCABEZADO
-        Paragraph fecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
-        fecha.setAlignment(Element.ALIGN_RIGHT);
-        document.add(fecha);
+            // ENCABEZADO
+            Paragraph fecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
+            fecha.setAlignment(Element.ALIGN_RIGHT);
+            document.add(fecha);
 
-        Paragraph titulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11));
-        titulo.setAlignment(Element.ALIGN_CENTER);
-        document.add(titulo);
+            Paragraph titulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fu.f11B);
+            titulo.setAlignment(Element.ALIGN_CENTER);
+            document.add(titulo);
 
-        Paragraph subtitulo = new Paragraph("Reporte de Deuda Individual", fontHeader);
-        subtitulo.setAlignment(Element.ALIGN_CENTER);
-        document.add(subtitulo);
-        document.add(Chunk.NEWLINE);
+            Paragraph subtitulo = new Paragraph("Reporte de Deuda Individual", fontHeader);
+            subtitulo.setAlignment(Element.ALIGN_CENTER);
+            document.add(subtitulo);
+            document.add(Chunk.NEWLINE);
 
-        // TABLA ALUMNO
-        PdfPTable infoTable = new PdfPTable(4);
-        infoTable.setWidthPercentage(100);
-        try { infoTable.setWidths(new float[]{1.5f, 4.5f, 1f, 3f}); } catch (Exception ignored) {}
+            // TABLA ALUMNO
+            PdfPTable infoTable = new PdfPTable(4);
+            infoTable.setWidthPercentage(100);
+            try { infoTable.setWidths(new float[]{1.5f, 4.5f, 1f, 3f}); } catch (Exception ignored) {}
 
-        addCell(infoTable, "Legajo:", fontBold);
-        addCell(infoTable, alumnoId.toString(), fontNormal);
-        addCell(infoTable, "Curso:", fontBold);
-        addCell(infoTable, alumnoDto.getCurso() != null ? alumnoDto.getCurso() : "Sin Asignar", fontNormal);
-        addCell(infoTable, "Alumno:", fontBold);
-        addCell(infoTable, alumnoDto.getApellido() + ", " + alumnoDto.getNombre(), fontNormal);
-        addCell(infoTable, "DNI:", fontBold);
-        addCell(infoTable, alumnoDto.getNroDocumento(), fontNormal);
+            addCell(infoTable, "Legajo:", fontBold);
+            addCell(infoTable, alumnoId.toString(), fontNormal);
+            addCell(infoTable, "Curso:", fontBold);
+            addCell(infoTable, alumnoDto.getCurso() != null ? alumnoDto.getCurso() : "Sin Asignar", fontNormal);
+            addCell(infoTable, "Alumno:", fontBold);
+            addCell(infoTable, alumnoDto.getApellido() + ", " + alumnoDto.getNombre(), fontNormal);
+            addCell(infoTable, "DNI:", fontBold);
+            addCell(infoTable, alumnoDto.getNroDocumento(), fontNormal);
 
-        document.add(infoTable);
-        document.add(Chunk.NEWLINE);
+            document.add(infoTable);
+            document.add(Chunk.NEWLINE);
 
-        // GRILLA CONCEPTOS
-        PdfPTable table = new PdfPTable(6);
-        table.setWidthPercentage(100);
-        try { table.setWidths(new float[]{1.8f, 4.2f, 2.2f, 1.8f, 1.8f, 2.2f}); } catch (Exception ignored) {}
+            // GRILLA CONCEPTOS
+            PdfPTable table = new PdfPTable(6);
+            table.setWidthPercentage(100);
+            try { table.setWidths(new float[]{1.8f, 4.2f, 2.2f, 1.8f, 1.8f, 2.2f}); } catch (Exception ignored) {}
 
-        String[] headers = {"F.Estado", "Concepto", "Estado", "Importe", "F.Registro", "Periodo"};
-        for (String h : headers) {
-            table.addCell(new PdfPCell(new Phrase(h, fontBold)));
-        }
-
-        if (datosDeuda.getDetalles().isEmpty()) {
-            PdfPCell empty = new PdfPCell(new Phrase("El alumno no registra deudas pendientes.", fontNormal));
-            empty.setColspan(6);
-            empty.setHorizontalAlignment(Element.ALIGN_CENTER);
-            table.addCell(empty);
-        } else {
-            for (LineaDetalleDto item : datosDeuda.getDetalles()) {
-                table.addCell(new Phrase(item.getFechaEstado() != null ? item.getFechaEstado().format(dtfTablas) : "", fontNormal));
-                table.addCell(new Phrase(item.getConcepto(), fontNormal));
-                table.addCell(new Phrase(item.getEstado(), fontNormal));
-
-                PdfPCell imp = new PdfPCell(new Phrase(item.getImporte() != null ? formatoMoneda.format(item.getImporte()) : "$ 0,00", fontNormal));
-                imp.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                table.addCell(imp);
-
-                table.addCell(new Phrase(item.getFechaRegistro() != null ? item.getFechaRegistro().format(dtfTablas) : "", fontNormal));
-                table.addCell(new Phrase(item.getPeriodo(), fontNormal));
+            String[] headers = {"F.Estado", "Concepto", "Estado", "Importe", "F.Registro", "Periodo"};
+            for (String h : headers) {
+                table.addCell(new PdfPCell(new Phrase(h, fontBold)));
             }
+
+            if (datosDeuda.getDetalles().isEmpty()) {
+                PdfPCell empty = new PdfPCell(new Phrase("El alumno no registra deudas pendientes.", fontNormal));
+                empty.setColspan(6);
+                empty.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(empty);
+            } else {
+                for (LineaDetalleDto item : datosDeuda.getDetalles()) {
+                    table.addCell(new Phrase(item.getFechaEstado() != null ? item.getFechaEstado().format(dtfTablas) : "", fontNormal));
+                    table.addCell(new Phrase(item.getConcepto(), fontNormal));
+                    table.addCell(new Phrase(item.getEstado(), fontNormal));
+
+                    PdfPCell imp = new PdfPCell(new Phrase(item.getImporte() != null ? formatoMoneda.format(item.getImporte()) : "$ 0,00", fontNormal));
+                    imp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    table.addCell(imp);
+
+                    table.addCell(new Phrase(item.getFechaRegistro() != null ? item.getFechaRegistro().format(dtfTablas) : "", fontNormal));
+                    table.addCell(new Phrase(item.getPeriodo(), fontNormal));
+                }
+            }
+            document.add(table);
+
+            // TOTAL
+            Paragraph total = new Paragraph("TOTAL DEUDA: " + formatoMoneda.format(datosDeuda.getTotalDeuda()), fontBold);
+            total.setAlignment(Element.ALIGN_RIGHT);
+            document.add(total);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de deuda individual", e);
         }
-        document.add(table);
 
-        // TOTAL
-        Paragraph total = new Paragraph("TOTAL DEUDA: " + formatoMoneda.format(datosDeuda.getTotalDeuda()), fontBold);
-        total.setAlignment(Element.ALIGN_RIGHT);
-        document.add(total);
-
-        document.close();
         return out.toByteArray();
     }
 
@@ -346,17 +349,13 @@ public class FacturaService {
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Constructor de OpenPDF: Document(PageSize, marginLeft, marginRight, marginTop, marginBottom)
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // FUENTES
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font fontNormal = fu.f9;
+            Font fontBold = fu.f9B;
+            Font fontTitulo = fu.f11B;
 
             // ENCABEZADO
             Paragraph pFecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
@@ -378,7 +377,7 @@ public class FacturaService {
 
             // CONTENIDO
             for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
-                document.add(new Paragraph(est.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11)));
+                document.add(new Paragraph(est.getNombre(), fontTitulo));
 
                 for (RecaudacionMedioDto medio : est.getMedios()) {
                     document.add(new Paragraph(medio.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9)));
@@ -512,6 +511,189 @@ public class FacturaService {
         return reporte;
     }
 
+    // 🌟 Facturación por Concepto/Rubro — por Período
+    public ReporteFacturacionConceptoDto obtenerFacturacionPorConceptoYPeriodo(String periodo) {
+        List<FacturacionConceptoProjection> filas = conceptoRepository.findFacturacionPorConceptoYPeriodo(periodo);
+        return construirReporteFacturacionConcepto(filas, periodo);
+    }
+
+    // 🌟 Agrupa las filas planas (alumno + concepto + factura) en un reporte por concepto,
+    // separando totales FACTURADO (todo lo que se facturó, esté pagado o no) y
+    // COBRADO (solo lo que corresponde a facturas ya pagadas)
+    private ReporteFacturacionConceptoDto construirReporteFacturacionConcepto(
+            List<FacturacionConceptoProjection> filas, String filtroDescripcion) {
+
+        ReporteFacturacionConceptoDto reporte = new ReporteFacturacionConceptoDto();
+        reporte.setFiltroDescripcion(filtroDescripcion);
+        reporte.setFechaGeneracion(LocalDateTime.now());
+
+        // Mantiene el orden de aparición (la query ya viene ordenada por concepto)
+        java.util.LinkedHashMap<String, FacturacionConceptoDto> agrupado = new java.util.LinkedHashMap<>();
+
+        for (FacturacionConceptoProjection fila : filas) {
+            FacturacionConceptoDto conceptoDto = agrupado.computeIfAbsent(fila.getConcepto(), nombre -> {
+                FacturacionConceptoDto nuevo = new FacturacionConceptoDto();
+                nuevo.setNombreConcepto(nombre);
+                nuevo.setTotalFacturado(BigDecimal.ZERO);
+                nuevo.setTotalCobrado(BigDecimal.ZERO);
+                nuevo.setCantidadFacturado(0);
+                nuevo.setCantidadCobrado(0);
+                return nuevo;
+            });
+
+            boolean pagado = fila.getPagado() != null && fila.getPagado() == 1;
+            BigDecimal importe = fila.getImporte() != null ? fila.getImporte() : BigDecimal.ZERO;
+
+            conceptoDto.getDetalles().add(new ConceptoDetalleAlumnoDto(
+                    fila.getLegajo(), fila.getNombreAlumno(), fila.getNroFactura(), importe,
+                    fila.getFechaFactura(), fila.getFechaPago(), fila.getPeriodo(), pagado
+            ));
+
+            conceptoDto.setTotalFacturado(conceptoDto.getTotalFacturado().add(importe));
+            conceptoDto.setCantidadFacturado(conceptoDto.getCantidadFacturado() + 1);
+
+            if (pagado) {
+                conceptoDto.setTotalCobrado(conceptoDto.getTotalCobrado().add(importe));
+                conceptoDto.setCantidadCobrado(conceptoDto.getCantidadCobrado() + 1);
+            }
+        }
+
+        BigDecimal granTotalFacturado = BigDecimal.ZERO;
+        BigDecimal granTotalCobrado = BigDecimal.ZERO;
+        int cantidadTotalFacturado = 0;
+        int cantidadTotalCobrado = 0;
+
+        for (FacturacionConceptoDto c : agrupado.values()) {
+            granTotalFacturado = granTotalFacturado.add(c.getTotalFacturado());
+            granTotalCobrado = granTotalCobrado.add(c.getTotalCobrado());
+            cantidadTotalFacturado += c.getCantidadFacturado();
+            cantidadTotalCobrado += c.getCantidadCobrado();
+        }
+
+        reporte.setConceptos(new java.util.ArrayList<>(agrupado.values()));
+        reporte.setGranTotalFacturado(granTotalFacturado.setScale(2, RoundingMode.HALF_UP));
+        reporte.setGranTotalCobrado(granTotalCobrado.setScale(2, RoundingMode.HALF_UP));
+        reporte.setCantidadTotalFacturado(cantidadTotalFacturado);
+        reporte.setCantidadTotalCobrado(cantidadTotalCobrado);
+        return reporte;
+    }
+
+    // 🌟 PDF de "Facturación por Concepto/Rubro"
+    // 🌟 Agrupa las fuentes que se repiten en varios reportes PDF (evita declarar las
+    // mismas 8-9 fuentes una y otra vez en cada método generarPdfXxx)
+    private static class FuentesReporte {
+        Font f7, f8, f8B, f9, f9B, f10B, f11B, f12B, f14B;
+    }
+
+    private FuentesReporte crearFuentesReporte() {
+        FuentesReporte f = new FuentesReporte();
+        f.f7 = FontFactory.getFont(FontFactory.HELVETICA, 7);
+        f.f8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
+        f.f8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+        f.f9 = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        f.f9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        f.f10B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+        f.f11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+        f.f12B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+        f.f14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+        return f;
+    }
+
+    // 🌟 Arma el Document + PdfWriter con la configuración estándar (A4, márgenes) y ya
+    // lo deja abierto, listo para escribir
+    private Document iniciarDocumentoPdf(ByteArrayOutputStream out) throws Exception {
+        Document doc = new Document(PageSize.A4, 40, 20, 20, 20);
+        PdfWriter.getInstance(doc, out);
+        doc.open();
+        return doc;
+    }
+
+    public byte[] generarPdfFacturacionConcepto(ReporteFacturacionConceptoDto datos) {
+        NumberFormat fmt = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try {
+            Document doc = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fu.f8);
+            pGen.setAlignment(Element.ALIGN_RIGHT);
+            doc.add(pGen);
+
+            Paragraph pTit = new Paragraph("Facturación por Concepto / Rubro", fu.f14B);
+            pTit.setAlignment(Element.ALIGN_CENTER);
+            doc.add(pTit);
+
+            Paragraph pFiltro = new Paragraph("Filtro: " + datos.getFiltroDescripcion(), FontFactory.getFont(FontFactory.HELVETICA, 10));
+            pFiltro.setAlignment(Element.ALIGN_RIGHT);
+            doc.add(pFiltro);
+
+            for (FacturacionConceptoDto concepto : datos.getConceptos()) {
+                doc.add(new Paragraph("\n" + concepto.getNombreConcepto(), fu.f10B));
+
+                PdfPTable table = new PdfPTable(new float[]{1.2f, 2f, 4.5f, 1.8f, 1.8f, 2.3f});
+                table.setWidthPercentage(100);
+                table.setSpacingBefore(5f);
+
+                String[] headers = {"Factura", "Legajo", "Apellido, Nombre", "F. Factura", "F. Pago", "Importe"};
+                for (String h : headers) {
+                    PdfPCell cell = new PdfPCell(new Phrase(h, fu.f8B));
+                    cell.setBorder(PdfPCell.NO_BORDER);
+                    table.addCell(cell);
+                }
+
+                for (ConceptoDetalleAlumnoDto item : concepto.getDetalles()) {
+                    table.addCell(new PdfPCell(new Phrase(item.getNroFactura().toString(), fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getNombreAlumno(), fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.getFechaFactura() != null ? item.getFechaFactura().format(dtf) : "-", fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                    table.addCell(new PdfPCell(new Phrase(item.isPagado() && item.getFechaPago() != null ? item.getFechaPago().format(dtf) : "-", fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+
+                    PdfPCell cellImp = new PdfPCell(new Phrase(fmt.format(item.getImporte()), fu.f7));
+                    cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    cellImp.setBorder(PdfPCell.NO_BORDER);
+                    table.addCell(cellImp);
+                }
+                doc.add(table);
+
+                Paragraph pSub = new Paragraph(
+                        "Facturado: " + concepto.getCantidadFacturado() + " - " + fmt.format(concepto.getTotalFacturado()) +
+                                "     |     Cobrado: " + concepto.getCantidadCobrado() + " - " + fmt.format(concepto.getTotalCobrado()),
+                        fu.f9B);
+                pSub.setAlignment(Element.ALIGN_RIGHT);
+                pSub.setSpacingBefore(3f);
+                pSub.setSpacingAfter(10f);
+                doc.add(pSub);
+            }
+
+            // PÁGINA FINAL
+            doc.newPage();
+            doc.add(new Paragraph("Facturación por Concepto / Rubro", fu.f14B));
+            doc.add(new Paragraph("Filtro: " + datos.getFiltroDescripcion(), FontFactory.getFont(FontFactory.HELVETICA, 10)));
+            doc.add(Chunk.NEWLINE);
+            doc.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
+
+            Paragraph pFinal = new Paragraph(
+                    "TOTAL FACTURADO\nCantidad: " + datos.getCantidadTotalFacturado() +
+                            "   |   " + fmt.format(datos.getGranTotalFacturado()) +
+                            "\n\nTOTAL COBRADO\nCantidad: " + datos.getCantidadTotalCobrado() +
+                            "   |   " + fmt.format(datos.getGranTotalCobrado()),
+                    fu.f12B);
+            pFinal.setAlignment(Element.ALIGN_RIGHT);
+            pFinal.setSpacingBefore(10f);
+            doc.add(pFinal);
+
+            doc.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de Facturación por Concepto", e);
+        }
+
+        return out.toByteArray();
+    }
+
     // 2. Método para generar el PDF tal cual la imagen
     public byte[] generarPdfFacturasPeriodo(String descripcion) {
         ReporteFacturaPeriodoDto datos = obtenerFacturasPeriodoEstructurada(descripcion);
@@ -520,20 +702,15 @@ public class FacturaService {
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Constructor de OpenPDF: Document(PageSize, marginLeft, marginRight, marginTop, marginBottom)
-        // El margen izquierdo (40) se mantiene para el encarpetado
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // FUENTES
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
-            Font fontEncabezado = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            Font fontTotalGral = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font fontNormal = fu.f9;
+            Font fontBold = fu.f9B;
+            Font fontTitulo = fu.f14B;
+            Font fontEncabezado = fu.f12B;
+            Font fontTotalGral = fu.f11B;
 
             // --- ENCABEZADO ---
             Paragraph pTitulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fontEncabezado);
@@ -699,29 +876,17 @@ public class FacturaService {
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(doc, out);
-            doc.open();
-
-            // FUENTES
-            Font font7 = FontFactory.getFont(FontFactory.HELVETICA, 7);
-            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
-            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
-            Font font9 = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font font10B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Font font12B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Document doc = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
 
             // ENCABEZADO
-            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fu.f8);
             pGen.setAlignment(Element.ALIGN_RIGHT);
             doc.add(pGen);
 
-            Paragraph pTit = new Paragraph("Recaudación por Período", font14B);
+            Paragraph pTit = new Paragraph("Recaudación por Período", fu.f14B);
             pTit.setAlignment(Element.ALIGN_CENTER);
             doc.add(pTit);
 
@@ -731,7 +896,7 @@ public class FacturaService {
 
             // LISTADO
             for (RecaudacionEstablecimientoDto est : datos.getEstablecimientos()) {
-                doc.add(new Paragraph("\n" + est.getNombre(), font10B));
+                doc.add(new Paragraph("\n" + est.getNombre(), fu.f10B));
 
                 for (RecaudacionMedioDto medio : est.getMedios()) {
                     Paragraph pMedio = new Paragraph(medio.getNombre(), FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9));
@@ -745,20 +910,20 @@ public class FacturaService {
                     // Encabezados
                     String[] headers = {"Factura", "Período", "Legajo", "Apellido, Nombre", "Fecha", "Pagado"};
                     for (String h : headers) {
-                        PdfPCell cell = new PdfPCell(new Phrase(h, font8B));
+                        PdfPCell cell = new PdfPCell(new Phrase(h, fu.f8B));
                         cell.setBorder(PdfPCell.NO_BORDER);
                         table.addCell(cell);
                     }
 
                     // Datos
                     for (RecaudacionDetalleDto item : medio.getItems()) {
-                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getFecha() != null ? item.getFecha().format(dtf) : "", font7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFecha() != null ? item.getFecha().format(dtf) : "", fu.f7)) {{ setBorder(PdfPCell.NO_BORDER); }});
 
-                        PdfPCell cellImp = new PdfPCell(new Phrase(fmt.format(item.getPagado()), font7));
+                        PdfPCell cellImp = new PdfPCell(new Phrase(fmt.format(item.getPagado()), fu.f7));
                         cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
                         cellImp.setBorder(PdfPCell.NO_BORDER);
                         table.addCell(cellImp);
@@ -767,7 +932,7 @@ public class FacturaService {
 
                     Paragraph pSub = new Paragraph(
                             "Cantidad de Pagos: " + medio.getCantidadPagos() + "   |   " + fmt.format(medio.getSubtotal()),
-                            font9B);
+                            fu.f9B);
                     pSub.setAlignment(Element.ALIGN_RIGHT);
                     pSub.setSpacingBefore(3f);
                     doc.add(pSub);
@@ -776,9 +941,9 @@ public class FacturaService {
                 int pagosEst = est.getMedios().stream().mapToInt(RecaudacionMedioDto::getCantidadPagos).sum();
 
                 Paragraph pEstTotal = new Paragraph(
-                        "TOTAL " + "   —   Cantidad de Pagos: " + pagosEst +
+                        "TOTAL " + est.getNombre() + "   —   Cantidad de Pagos: " + pagosEst +
                                 "   |   " + fmt.format(est.getTotalEstablecimiento()),
-                        font11B);
+                        fu.f11B);
                 pEstTotal.setAlignment(Element.ALIGN_RIGHT);
                 pEstTotal.setSpacingBefore(4f);
                 pEstTotal.setSpacingAfter(14f);
@@ -787,7 +952,7 @@ public class FacturaService {
 
             // PÁGINA FINAL
             doc.newPage();
-            doc.add(new Paragraph("Recaudación por Período", font14B));
+            doc.add(new Paragraph("Recaudación por Período", fu.f14B));
             doc.add(new Paragraph("Período: " + periodo, FontFactory.getFont(FontFactory.HELVETICA, 10)));
             doc.add(Chunk.NEWLINE);
 
@@ -796,7 +961,7 @@ public class FacturaService {
             Paragraph pFinal = new Paragraph(
                     "TOTAL GENERAL DEL PERÍODO\nCantidad de Pagos: " + datos.getCantidadTotalPagos() +
                             "   |   " + fmt.format(datos.getGranTotal()),
-                    font12B);
+                    fu.f12B);
             pFinal.setAlignment(Element.ALIGN_RIGHT);
             pFinal.setSpacingBefore(10f);
             doc.add(pFinal);
@@ -889,26 +1054,17 @@ public class FacturaService {
         NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Documento con margen izquierdo de 40 para encuadernación
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // Fuentes
-            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
-            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
-            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
 
             // CABECERA
-            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fu.f8);
             pGen.setAlignment(Element.ALIGN_RIGHT);
             document.add(pGen);
 
-            Paragraph pTit = new Paragraph("Recaudación por Fechas", font14B);
+            Paragraph pTit = new Paragraph("Recaudación por Fechas", fu.f14B);
             pTit.setAlignment(Element.ALIGN_CENTER);
             document.add(pTit);
 
@@ -923,7 +1079,7 @@ public class FacturaService {
 
                 // ITERACIÓN POR MEDIO DE PAGO
                 for (RecaudacionMedioDto medio : est.getMedios()) {
-                    Paragraph pMedio = new Paragraph(medio.getNombre(), font9B);
+                    Paragraph pMedio = new Paragraph(medio.getNombre(), fu.f9B);
                     pMedio.setIndentationLeft(20);
                     document.add(pMedio);
 
@@ -935,25 +1091,25 @@ public class FacturaService {
                     // Cabeceras
                     String[] headers = {"Factura", "Período", "Legajo", "Apellido, Nombre", "Fecha", "Pagado"};
                     for (String h : headers) {
-                        table.addCell(new PdfPCell(new Phrase(h, font8B)) {{ setBorder(PdfPCell.BOTTOM); }});
+                        table.addCell(new PdfPCell(new Phrase(h, fu.f8B)) {{ setBorder(PdfPCell.BOTTOM); }});
                     }
 
                     // Filas
                     for (RecaudacionDetalleDto item : medio.getItems()) {
-                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getFecha().format(fmtFecha), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFecha().format(fmtFecha), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
 
-                        PdfPCell cellImp = new PdfPCell(new Phrase(fmtMoneda.format(item.getPagado()), font8));
+                        PdfPCell cellImp = new PdfPCell(new Phrase(fmtMoneda.format(item.getPagado()), fu.f8));
                         cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
                         cellImp.setBorder(PdfPCell.NO_BORDER);
                         table.addCell(cellImp);
                     }
                     document.add(table);
 
-                    Paragraph pSub = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmtMoneda.format(medio.getSubtotal()), font9B);
+                    Paragraph pSub = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmtMoneda.format(medio.getSubtotal()), fu.f9B);
                     pSub.setAlignment(Element.ALIGN_RIGHT);
                     document.add(pSub);
                 }
@@ -967,7 +1123,7 @@ public class FacturaService {
 
             // PIE DE REPORTE (Gran Total)
             document.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
-            Paragraph pFinal = new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmtMoneda.format(datos.getGranTotal()), font11B);
+            Paragraph pFinal = new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmtMoneda.format(datos.getGranTotal()), fu.f11B);
             pFinal.setAlignment(Element.ALIGN_RIGHT);
             document.add(pFinal);
 
@@ -1020,19 +1176,15 @@ public class FacturaService {
         NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Formato A4 con márgenes idénticos a tu reporte de recaudación
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // Fuentes estándar
-            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
-            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
-            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
+            Font font8 = fu.f8;
+            Font font8B = fu.f8B;
+            Font font9B = fu.f9B;
+            Font font11B = fu.f11B;
+            Font font14B = fu.f14B;
 
             // Cabecera Principal del Documento
             Paragraph pInstitucion = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", font9B);
@@ -1365,6 +1517,60 @@ public class FacturaService {
      * todavía). Donde va el código de barras se deja un placeholder de texto — la
      * generación real de código de barras queda pendiente para más adelante.
      */
+    // 🌟 Arma las 2 copias de UNA factura (vencimiento/fecha/código de barras/conceptos/
+    // otras deudas + las dos llamadas a dibujarUnaCopiaFactura con su separador punteado
+    // en el medio). Compartido entre "Factura por Curso" (una vez por alumno) y
+    // "Factura por Alumno" (una sola vez).
+    private void escribirFacturaConDosCopias(
+            Document document, PdfWriter writer, PreviewFacturaCursoAlumnoDto item, Curso curso, Periodo periodo,
+            String establecimiento, String direccion, String cicloNombre, String dni,
+            NumberFormat formatoMoneda, DateTimeFormatter dtfGeneracion, DateTimeFormatter dtfTablas
+    ) throws Exception {
+        Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+        Font fontSubtitulo = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font fontPlaceholder = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY);
+
+        // Vencimiento, fecha de emisión y código de barras real de ESA factura (si existe)
+        Optional<Factura> facturaEntidad = facturaRepository.findByNroFactura(item.getNroFactura());
+        LocalDate vencimiento = facturaEntidad.map(Factura::getPrimerVencimiento).orElse(null);
+        LocalDate fechaFactura = facturaEntidad.map(Factura::getFechaEstado).orElse(LocalDate.now());
+        String codigoBarras = facturaEntidad.map(Factura::getPfBarras)
+                .filter(s -> s != null && !s.isBlank())
+                .orElse(null);
+
+        // Se calculan UNA sola vez por alumno y se reusan en las dos copias impresas
+        List<ConceptoConEstadoProjection> conceptosCompletos =
+                conceptoRepository.findTodosPorAlumnoYPeriodo(item.getLegajo(), periodo.getPeriodoId());
+
+        List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(item.getLegajo()).stream()
+                .filter(f -> f.getTipoEstado() != null
+                        && f.getTipoEstado().getEstadoId() != null
+                        && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
+                .filter(f -> !f.getNroFactura().equals(item.getNroFactura())) // no repetir esta misma
+                .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
+
+        // --- DOS COPIAS DE LA MISMA FACTURA EN LA MISMA HOJA (talón), como el sistema anterior ---
+        // La primera copia es completa (conceptos + resumen de deuda);
+        // la segunda es resumida (solo encabezado + datos + total + código de barras)
+        dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
+                cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
+                formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
+                false);
+
+        document.add(Chunk.NEWLINE);
+        document.add(new Chunk(new org.openpdf.text.pdf.draw.DottedLineSeparator()));
+        document.add(Chunk.NEWLINE);
+
+        dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
+                cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
+                formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
+                true);
+    }
+
     public byte[] generarPdfFacturaCurso(Long cursoId, Long periodoId) {
         Curso curso = cursoRepository.findById(cursoId)
                 .orElseThrow(() -> new RuntimeException("Curso no encontrado (id " + cursoId + ")"));
@@ -1396,57 +1602,16 @@ public class FacturaService {
             PdfWriter writer = PdfWriter.getInstance(document, out);
             document.open();
 
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font fontSubtitulo = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontPlaceholder = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY);
-
             for (int i = 0; i < facturados.size(); i++) {
                 PreviewFacturaCursoAlumnoDto item = facturados.get(i);
-
-                // Vencimiento, fecha de emisión y código de barras real de ESA factura (si existe)
-                Optional<Factura> facturaEntidad = facturaRepository.findByNroFactura(item.getNroFactura());
-                LocalDate vencimiento = facturaEntidad.map(Factura::getPrimerVencimiento).orElse(null);
-                LocalDate fechaFactura = facturaEntidad.map(Factura::getFechaEstado).orElse(LocalDate.now());
-                String codigoBarras = facturaEntidad.map(Factura::getPfBarras)
-                        .filter(s -> s != null && !s.isBlank())
-                        .orElse(null);
 
                 // DNI del alumno (no viene en el preview, lo buscamos puntualmente)
                 String dni = alumnoRepository.findById(item.getLegajo())
                         .map(Alumno::getNroDocumento)
                         .orElse("");
 
-                // Se calculan UNA sola vez por alumno y se reusan en las dos copias impresas
-                List<ConceptoConEstadoProjection> conceptosCompletos =
-                        conceptoRepository.findTodosPorAlumnoYPeriodo(item.getLegajo(), periodo.getPeriodoId());
-
-                List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(item.getLegajo()).stream()
-                        .filter(f -> f.getTipoEstado() != null
-                                && f.getTipoEstado().getEstadoId() != null
-                                && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
-                        .filter(f -> !f.getNroFactura().equals(item.getNroFactura())) // no repetir esta misma
-                        .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
-                        .collect(Collectors.toList());
-
-                // --- DOS COPIAS DE LA MISMA FACTURA EN LA MISMA HOJA (talón), como el sistema anterior ---
-                // La primera copia es completa (conceptos + resumen de deuda);
-                // la segunda es resumida (solo encabezado + datos + total + código de barras)
-                dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                        cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                        formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                        false);
-
-                document.add(Chunk.NEWLINE);
-                document.add(new Chunk(new org.openpdf.text.pdf.draw.DottedLineSeparator()));
-                document.add(Chunk.NEWLINE);
-
-                dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                        cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                        formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                        true);
+                escribirFacturaConDosCopias(document, writer, item, curso, periodo, establecimiento, direccion,
+                        cicloNombre, dni, formatoMoneda, dtfGeneracion, dtfTablas);
 
                 if (i < facturados.size() - 1) {
                     document.newPage();
@@ -1694,46 +1859,10 @@ public class FacturaService {
             PdfWriter writer = PdfWriter.getInstance(document, out);
             document.open();
 
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font fontSubtitulo = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontPlaceholder = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY);
-
-            Optional<Factura> facturaEntidad = facturaRepository.findByNroFactura(item.getNroFactura());
-            LocalDate vencimiento = facturaEntidad.map(Factura::getPrimerVencimiento).orElse(null);
-            LocalDate fechaFactura = facturaEntidad.map(Factura::getFechaEstado).orElse(LocalDate.now());
-            String codigoBarras = facturaEntidad.map(Factura::getPfBarras)
-                    .filter(s -> s != null && !s.isBlank())
-                    .orElse(null);
-
             String dni = alumno.getNroDocumento();
 
-            List<ConceptoConEstadoProjection> conceptosCompletos =
-                    conceptoRepository.findTodosPorAlumnoYPeriodo(alumnoId, periodoId);
-
-            List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(alumnoId).stream()
-                    .filter(f -> f.getTipoEstado() != null
-                            && f.getTipoEstado().getEstadoId() != null
-                            && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
-                    .filter(f -> !f.getNroFactura().equals(item.getNroFactura()))
-                    .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
-                            Comparator.nullsLast(Comparator.naturalOrder())))
-                    .collect(Collectors.toList());
-
-            dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                    cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                    formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                    false);
-
-            document.add(Chunk.NEWLINE);
-            document.add(new Chunk(new org.openpdf.text.pdf.draw.DottedLineSeparator()));
-            document.add(Chunk.NEWLINE);
-
-            dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                    cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                    formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                    true);
+            escribirFacturaConDosCopias(document, writer, item, curso, periodo, establecimiento, direccion,
+                    cicloNombre, dni, formatoMoneda, dtfGeneracion, dtfTablas);
 
             document.close();
         } catch (Exception e) {
