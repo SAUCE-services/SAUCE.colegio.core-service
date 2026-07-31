@@ -1527,6 +1527,60 @@ public class FacturaService {
      * todavía). Donde va el código de barras se deja un placeholder de texto — la
      * generación real de código de barras queda pendiente para más adelante.
      */
+    // 🌟 Arma las 2 copias de UNA factura (vencimiento/fecha/código de barras/conceptos/
+    // otras deudas + las dos llamadas a dibujarUnaCopiaFactura con su separador punteado
+    // en el medio). Compartido entre "Factura por Curso" (una vez por alumno) y
+    // "Factura por Alumno" (una sola vez).
+    private void escribirFacturaConDosCopias(
+            Document document, PdfWriter writer, PreviewFacturaCursoAlumnoDto item, Curso curso, Periodo periodo,
+            String establecimiento, String direccion, String cicloNombre, String dni,
+            NumberFormat formatoMoneda, DateTimeFormatter dtfGeneracion, DateTimeFormatter dtfTablas
+    ) throws Exception {
+        Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+        Font fontSubtitulo = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font fontPlaceholder = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY);
+
+        // Vencimiento, fecha de emisión y código de barras real de ESA factura (si existe)
+        Optional<Factura> facturaEntidad = facturaRepository.findByNroFactura(item.getNroFactura());
+        LocalDate vencimiento = facturaEntidad.map(Factura::getPrimerVencimiento).orElse(null);
+        LocalDate fechaFactura = facturaEntidad.map(Factura::getFechaEstado).orElse(LocalDate.now());
+        String codigoBarras = facturaEntidad.map(Factura::getPfBarras)
+                .filter(s -> s != null && !s.isBlank())
+                .orElse(null);
+
+        // Se calculan UNA sola vez por alumno y se reusan en las dos copias impresas
+        List<ConceptoConEstadoProjection> conceptosCompletos =
+                conceptoRepository.findTodosPorAlumnoYPeriodo(item.getLegajo(), periodo.getPeriodoId());
+
+        List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(item.getLegajo()).stream()
+                .filter(f -> f.getTipoEstado() != null
+                        && f.getTipoEstado().getEstadoId() != null
+                        && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
+                .filter(f -> !f.getNroFactura().equals(item.getNroFactura())) // no repetir esta misma
+                .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
+
+        // --- DOS COPIAS DE LA MISMA FACTURA EN LA MISMA HOJA (talón), como el sistema anterior ---
+        // La primera copia es completa (conceptos + resumen de deuda);
+        // la segunda es resumida (solo encabezado + datos + total + código de barras)
+        dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
+                cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
+                formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
+                false);
+
+        document.add(Chunk.NEWLINE);
+        document.add(new Chunk(new org.openpdf.text.pdf.draw.DottedLineSeparator()));
+        document.add(Chunk.NEWLINE);
+
+        dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
+                cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
+                formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
+                true);
+    }
+
     public byte[] generarPdfFacturaCurso(Long cursoId, Long periodoId) {
         Curso curso = cursoRepository.findById(cursoId)
                 .orElseThrow(() -> new RuntimeException("Curso no encontrado (id " + cursoId + ")"));
@@ -1558,57 +1612,16 @@ public class FacturaService {
             PdfWriter writer = PdfWriter.getInstance(document, out);
             document.open();
 
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font fontSubtitulo = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontPlaceholder = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY);
-
             for (int i = 0; i < facturados.size(); i++) {
                 PreviewFacturaCursoAlumnoDto item = facturados.get(i);
-
-                // Vencimiento, fecha de emisión y código de barras real de ESA factura (si existe)
-                Optional<Factura> facturaEntidad = facturaRepository.findByNroFactura(item.getNroFactura());
-                LocalDate vencimiento = facturaEntidad.map(Factura::getPrimerVencimiento).orElse(null);
-                LocalDate fechaFactura = facturaEntidad.map(Factura::getFechaEstado).orElse(LocalDate.now());
-                String codigoBarras = facturaEntidad.map(Factura::getPfBarras)
-                        .filter(s -> s != null && !s.isBlank())
-                        .orElse(null);
 
                 // DNI del alumno (no viene en el preview, lo buscamos puntualmente)
                 String dni = alumnoRepository.findById(item.getLegajo())
                         .map(Alumno::getNroDocumento)
                         .orElse("");
 
-                // Se calculan UNA sola vez por alumno y se reusan en las dos copias impresas
-                List<ConceptoConEstadoProjection> conceptosCompletos =
-                        conceptoRepository.findTodosPorAlumnoYPeriodo(item.getLegajo(), periodo.getPeriodoId());
-
-                List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(item.getLegajo()).stream()
-                        .filter(f -> f.getTipoEstado() != null
-                                && f.getTipoEstado().getEstadoId() != null
-                                && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
-                        .filter(f -> !f.getNroFactura().equals(item.getNroFactura())) // no repetir esta misma
-                        .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
-                        .collect(Collectors.toList());
-
-                // --- DOS COPIAS DE LA MISMA FACTURA EN LA MISMA HOJA (talón), como el sistema anterior ---
-                // La primera copia es completa (conceptos + resumen de deuda);
-                // la segunda es resumida (solo encabezado + datos + total + código de barras)
-                dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                        cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                        formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                        false);
-
-                document.add(Chunk.NEWLINE);
-                document.add(new Chunk(new org.openpdf.text.pdf.draw.DottedLineSeparator()));
-                document.add(Chunk.NEWLINE);
-
-                dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                        cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                        formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                        true);
+                escribirFacturaConDosCopias(document, writer, item, curso, periodo, establecimiento, direccion,
+                        cicloNombre, dni, formatoMoneda, dtfGeneracion, dtfTablas);
 
                 if (i < facturados.size() - 1) {
                     document.newPage();
@@ -1856,46 +1869,10 @@ public class FacturaService {
             PdfWriter writer = PdfWriter.getInstance(document, out);
             document.open();
 
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font fontSubtitulo = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font fontPlaceholder = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY);
-
-            Optional<Factura> facturaEntidad = facturaRepository.findByNroFactura(item.getNroFactura());
-            LocalDate vencimiento = facturaEntidad.map(Factura::getPrimerVencimiento).orElse(null);
-            LocalDate fechaFactura = facturaEntidad.map(Factura::getFechaEstado).orElse(LocalDate.now());
-            String codigoBarras = facturaEntidad.map(Factura::getPfBarras)
-                    .filter(s -> s != null && !s.isBlank())
-                    .orElse(null);
-
             String dni = alumno.getNroDocumento();
 
-            List<ConceptoConEstadoProjection> conceptosCompletos =
-                    conceptoRepository.findTodosPorAlumnoYPeriodo(alumnoId, periodoId);
-
-            List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(alumnoId).stream()
-                    .filter(f -> f.getTipoEstado() != null
-                            && f.getTipoEstado().getEstadoId() != null
-                            && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
-                    .filter(f -> !f.getNroFactura().equals(item.getNroFactura()))
-                    .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
-                            Comparator.nullsLast(Comparator.naturalOrder())))
-                    .collect(Collectors.toList());
-
-            dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                    cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                    formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                    false);
-
-            document.add(Chunk.NEWLINE);
-            document.add(new Chunk(new org.openpdf.text.pdf.draw.DottedLineSeparator()));
-            document.add(Chunk.NEWLINE);
-
-            dibujarUnaCopiaFactura(document, writer, item, curso, periodo, establecimiento, direccion,
-                    cicloNombre, vencimiento, fechaFactura, codigoBarras, dni, conceptosCompletos, otrasFacturasPendientes,
-                    formatoMoneda, dtfGeneracion, dtfTablas, fontTitulo, fontSubtitulo, fontBold, fontNormal, fontPlaceholder,
-                    true);
+            escribirFacturaConDosCopias(document, writer, item, curso, periodo, establecimiento, direccion,
+                    cicloNombre, dni, formatoMoneda, dtfGeneracion, dtfTablas);
 
             document.close();
         } catch (Exception e) {
