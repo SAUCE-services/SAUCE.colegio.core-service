@@ -1060,26 +1060,17 @@ public class FacturaService {
         NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // Documento con margen izquierdo de 40 para encuadernación
-        Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // Fuentes
-            Font font8 = FontFactory.getFont(FontFactory.HELVETICA, 8);
-            Font font8B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
-            Font font9B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Font font14B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Document document = iniciarDocumentoPdf(out);
+            FuentesReporte fu = crearFuentesReporte();
 
             // CABECERA
-            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
+            Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fu.f8);
             pGen.setAlignment(Element.ALIGN_RIGHT);
             document.add(pGen);
 
-            Paragraph pTit = new Paragraph("Recaudación por Fechas", font14B);
+            Paragraph pTit = new Paragraph("Recaudación por Fechas", fu.f14B);
             pTit.setAlignment(Element.ALIGN_CENTER);
             document.add(pTit);
 
@@ -1094,7 +1085,7 @@ public class FacturaService {
 
                 // ITERACIÓN POR MEDIO DE PAGO
                 for (RecaudacionMedioDto medio : est.getMedios()) {
-                    Paragraph pMedio = new Paragraph(medio.getNombre(), font9B);
+                    Paragraph pMedio = new Paragraph(medio.getNombre(), fu.f9B);
                     pMedio.setIndentationLeft(20);
                     document.add(pMedio);
 
@@ -1106,25 +1097,25 @@ public class FacturaService {
                     // Cabeceras
                     String[] headers = {"Factura", "Período", "Legajo", "Apellido, Nombre", "Fecha", "Pagado"};
                     for (String h : headers) {
-                        table.addCell(new PdfPCell(new Phrase(h, font8B)) {{ setBorder(PdfPCell.BOTTOM); }});
+                        table.addCell(new PdfPCell(new Phrase(h, fu.f8B)) {{ setBorder(PdfPCell.BOTTOM); }});
                     }
 
                     // Filas
                     for (RecaudacionDetalleDto item : medio.getItems()) {
-                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
-                        table.addCell(new PdfPCell(new Phrase(item.getFecha().format(fmtFecha), font8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFactura().toString(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getPeriodo(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getLegajo().toString(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getNombre(), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
+                        table.addCell(new PdfPCell(new Phrase(item.getFecha().format(fmtFecha), fu.f8)) {{ setBorder(PdfPCell.NO_BORDER); }});
 
-                        PdfPCell cellImp = new PdfPCell(new Phrase(fmtMoneda.format(item.getPagado()), font8));
+                        PdfPCell cellImp = new PdfPCell(new Phrase(fmtMoneda.format(item.getPagado()), fu.f8));
                         cellImp.setHorizontalAlignment(Element.ALIGN_RIGHT);
                         cellImp.setBorder(PdfPCell.NO_BORDER);
                         table.addCell(cellImp);
                     }
                     document.add(table);
 
-                    Paragraph pSub = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmtMoneda.format(medio.getSubtotal()), font9B);
+                    Paragraph pSub = new Paragraph("Cantidad de Pagos: " + medio.getCantidadPagos() + " - " + fmtMoneda.format(medio.getSubtotal()), fu.f9B);
                     pSub.setAlignment(Element.ALIGN_RIGHT);
                     document.add(pSub);
                 }
@@ -1138,7 +1129,7 @@ public class FacturaService {
 
             // PIE DE REPORTE (Gran Total)
             document.add(new Chunk(new org.openpdf.text.pdf.draw.LineSeparator(0.5f, 100, null, Element.ALIGN_CENTER, -2)));
-            Paragraph pFinal = new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmtMoneda.format(datos.getGranTotal()), font11B);
+            Paragraph pFinal = new Paragraph("\nCantidad de Pagos: " + datos.getCantidadTotalPagos() + " - " + fmtMoneda.format(datos.getGranTotal()), fu.f11B);
             pFinal.setAlignment(Element.ALIGN_RIGHT);
             document.add(pFinal);
 
