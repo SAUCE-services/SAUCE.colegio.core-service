@@ -32,6 +32,8 @@ public class AlumnoService {
     @Autowired
     private ICartaMedicaRepository cartaMedicaRepository;
     @Autowired
+    private PdfLogoService pdfLogoService;
+    @Autowired
     private ITipoDocumentoRepository tipoDocumentoRepository;
     @Autowired
     private ITipoNacionalidadRepository tipoNacionalidadRepository;
@@ -351,7 +353,7 @@ public class AlumnoService {
         Document document = new Document(PageSize.A4, 40, 20, 20, 20);
 
         try {
-            PdfWriter.getInstance(document, out);
+            PdfWriter writer = PdfWriter.getInstance(document, out);
             document.open();
 
             // FUENTES
@@ -361,12 +363,15 @@ public class AlumnoService {
             Font font11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
             Font font13B = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
 
+            String estName = (datosCurso.getNombreEstablecimiento() != null) ? datosCurso.getNombreEstablecimiento() : "Unión Vecinal de Servicios Públicos El Sauce - Colegio";
+
+            pdfLogoService.colocarArribaDerecha(document, writer, estName);
+
             // ENCABEZADO
             Paragraph pGen = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), font8);
-            pGen.setAlignment(Element.ALIGN_RIGHT);
+            pGen.setAlignment(Element.ALIGN_LEFT);
             document.add(pGen);
 
-            String estName = (datosCurso.getNombreEstablecimiento() != null) ? datosCurso.getNombreEstablecimiento() : "Unión Vecinal de Servicios Públicos El Sauce - Colegio";
             Paragraph pEst = new Paragraph(estName, font9B);
             pEst.setAlignment(Element.ALIGN_CENTER);
             document.add(pEst);

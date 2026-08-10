@@ -43,6 +43,8 @@ public class FacturaService {
     @Autowired
     private IAlumnoRepository alumnoRepository;
     @Autowired
+    private PdfLogoService pdfLogoService;
+    @Autowired
     private IConceptoRepository conceptoRepository;
     @Autowired
     private IPeriodoRepository periodoRepository;
@@ -143,6 +145,11 @@ public class FacturaService {
                     return dto;
                 }).orElseThrow(() -> new RuntimeException("Alumno no encontrado: " + alumnoId));
 
+        // 🌟 Establecimiento actual del alumno, solo para saber qué logo mostrar
+        String nombreEstablecimiento = cursoRepository.findCursoActualDeAlumno(alumnoId)
+                .map(c -> c.getEstablecimiento() != null ? c.getEstablecimiento().getNombre() : null)
+                .orElse(null);
+
         NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new java.util.Locale("es", "AR"));
         DateTimeFormatter dtfGeneracion = DateTimeFormatter.ofPattern("d/M/yyyy");
         DateTimeFormatter dtfTablas = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -150,15 +157,22 @@ public class FacturaService {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try {
-            Document document = iniciarDocumentoPdf(out);
+            // 🌟 Acá armamos el Document a mano (en vez de iniciarDocumentoPdf) porque
+            // necesitamos guardar el PdfWriter para poder colocar el logo
+            Document document = new Document(PageSize.A4, 40, 20, 20, 20);
+            PdfWriter writer = PdfWriter.getInstance(document, out);
+            document.open();
+
             FuentesReporte fu = crearFuentesReporte();
             Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
             Font fontNormal = fu.f9;
             Font fontBold = fu.f9B;
 
+            pdfLogoService.colocarArribaDerecha(document, writer, nombreEstablecimiento);
+
             // ENCABEZADO
             Paragraph fecha = new Paragraph("Generado el: " + LocalDateTime.now().format(dtfGeneracion), fontNormal);
-            fecha.setAlignment(Element.ALIGN_RIGHT);
+            fecha.setAlignment(Element.ALIGN_LEFT);
             document.add(fecha);
 
             Paragraph titulo = new Paragraph("Unión Vecinal de Servicios Públicos El Sauce - Colegio", fu.f11B);
@@ -1642,6 +1656,8 @@ public class FacturaService {
             boolean resumido
     ) throws Exception {
         // --- ENCABEZADO ---
+        pdfLogoService.colocarArribaDerecha(document, writer, establecimiento);
+
         Paragraph pEstablecimiento = new Paragraph(establecimiento, fontTitulo);
         document.add(pEstablecimiento);
         if (direccion != null && !direccion.isBlank()) {
