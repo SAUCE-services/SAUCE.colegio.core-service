@@ -50,7 +50,9 @@ public interface ICursoRepository extends JpaRepository<Curso, Long> {
     // usado para armar el encabezado del PDF de "Factura por Alumno"
     @Query(value = "SELECT c.* FROM cursos c " +
             "INNER JOIN alumnos_ciclo ac ON c.id_cursos = ac.curso_id " +
-            "WHERE ac.alumno_id = :alumnoId LIMIT 1", nativeQuery = true)
+            "WHERE ac.alumno_id = :alumnoId " +
+            "ORDER BY ac.curso_id DESC " + // 🌟 alumnos_ciclo tiene UNA FILA POR AÑO: sin esto, traía cualquiera (a veces el más viejo)
+            "LIMIT 1", nativeQuery = true)
     Optional<Curso> findCursoActualDeAlumno(@Param("alumnoId") Long alumnoId);
 
     // 🌟 Paginación separada por tipo de establecimiento (Jardín/Inicial vs Colegio),

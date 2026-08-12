@@ -1561,7 +1561,8 @@ public class FacturaService {
         List<Factura> otrasFacturasPendientes = facturaRepository.findByAlumnoId(item.getLegajo()).stream()
                 .filter(f -> f.getTipoEstado() != null
                         && f.getTipoEstado().getEstadoId() != null
-                        && f.getTipoEstado().getEstadoId() != 1L) // 1 = Pagada
+                        && f.getTipoEstado().getEstadoId() != 1L  // 1 = Pagada
+                        && f.getTipoEstado().getEstadoId() != 6L) // 6 = Factura Anulada
                 .filter(f -> !f.getNroFactura().equals(item.getNroFactura())) // no repetir esta misma
                 .sorted(Comparator.comparing(Factura::getPrimerVencimiento,
                         Comparator.nullsLast(Comparator.naturalOrder())))
@@ -1755,8 +1756,10 @@ public class FacturaService {
 
             // --- RESUMEN DE DEUDA (otras facturas de este alumno, pendientes de pago) ---
             document.add(Chunk.NEWLINE);
+            document.add(Chunk.NEWLINE);
             Paragraph pResumenTitulo = new Paragraph(
                     "RESUMEN DE DEUDA AL: " + fechaFactura.format(dtfTablas), fontBold);
+            pResumenTitulo.setSpacingBefore(40f);
             pResumenTitulo.setAlignment(Element.ALIGN_CENTER);
             document.add(pResumenTitulo);
 
