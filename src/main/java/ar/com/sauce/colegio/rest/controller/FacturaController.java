@@ -3,6 +3,7 @@ package ar.com.sauce.colegio.rest.controller;
 import ar.com.sauce.colegio.rest.dto.*;
 import ar.com.sauce.colegio.rest.model.Factura;
 import ar.com.sauce.colegio.rest.service.FacturaService;
+import ar.com.sauce.colegio.rest.service.HistoriaFacturacionExcelService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -22,10 +23,23 @@ import java.util.Map;
 public class FacturaController {
 
     private final FacturaService facturaService;
+    private final HistoriaFacturacionExcelService historiaExcelService;
 
     @GetMapping("/historia/{alumnoId}")
     public ResponseEntity<HistoriaFacturacionDto> getHistoria(@PathVariable Long alumnoId) {
         return ResponseEntity.ok(facturaService.obtenerHistoriaPorAlumno(alumnoId));
+    }
+
+    @GetMapping("/historia/{alumnoId}/excel")
+    public ResponseEntity<byte[]> descargarHistoriaExcel(@PathVariable Long alumnoId) {
+        byte[] excel = historiaExcelService.generarExcelHistoria(alumnoId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.add("Content-Disposition", "attachment; filename=historia_facturacion_" + alumnoId + ".xlsx");
+
+        return new ResponseEntity<>(excel, headers, HttpStatus.OK);
     }
 
     @GetMapping("/detalle/{nroFactura}") // 1. Cambiamos la variable en la ruta para que sea semántica
